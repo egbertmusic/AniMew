@@ -1,0 +1,27 @@
+query GetTrendingMedia($page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    media(sort: TRENDING_DESC, type: ANIME) {
+      id
+      title {
+        userPreferred
+        romaji
+        english
+      }
+      coverImage {
+        extraLarge
+        large
+        color
+      }
+      format
+      status
+      episodes
+      nextAiringEpisode {
+        airingAt
+        timeUntilAiring
+        episode
+      }
+      genres
+      averageScore
+    }
+  }
+}

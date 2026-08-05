@@ -1,0 +1,36 @@
+query GetUserStats($id: Int) {
+  User(id: $id) {
+    statistics {
+      anime {
+        count
+        minutesWatched
+        episodesWatched
+        meanScore
+        genres(limit: 10, sort: [COUNT_DESC]) {
+          genre
+          count
+          meanScore
+        }
+        statuses(sort: [COUNT_DESC]) {
+          status
+          count
+        }
+      }
+      manga {
+        count
+        chaptersRead
+        volumesRead
+        meanScore
+        genres(limit: 10, sort: [COUNT_DESC]) {
+          genre
+          count
+          meanScore
+        }
+        statuses(sort: [COUNT_DESC]) {
+          status
+          count
+        }
+      }
+    }
+  }
+}

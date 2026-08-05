@@ -1,0 +1,49 @@
+query GetUserList($userId: Int, $type: MediaType, $status: MediaListStatus) {
+  Page {
+    mediaList(userId: $userId, type: $type, status: $status) {
+      id
+      status
+      progress
+      score
+      media {
+        id
+        title {
+          userPreferred
+          romaji
+          english
+          native
+        }
+        coverImage {
+          extraLarge
+          large
+          color
+        }
+        format
+        type
+        episodes
+        chapters
+        nextAiringEpisode {
+          episode
+          airingAt
+          timeUntilAiring
+        }
+        status
+        externalLinks {
+          id
+          site
+          url
+        }
+      }
+    }
+  }
+}
+
+query GetViewer {
+  Viewer {
+    id
+    name
+    avatar {
+      large
+    }
+  }
+}

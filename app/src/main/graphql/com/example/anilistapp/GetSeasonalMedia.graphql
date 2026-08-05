@@ -1,0 +1,22 @@
+query GetSeasonalMedia($season: MediaSeason, $seasonYear: Int, $page: Int) {
+  Page(page: $page, perPage: 10) {
+    media(season: $season, seasonYear: $seasonYear, type: ANIME, sort: POPULARITY_DESC) {
+      id
+      title {
+        userPreferred
+      }
+      coverImage {
+        extraLarge
+        large
+        color
+      }
+      episodes
+      nextAiringEpisode {
+        airingAt
+        timeUntilAiring
+        episode
+      }
+      status
+    }
+  }
+}

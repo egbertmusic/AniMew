@@ -1,0 +1,36 @@
+query SearchAniList($search: String, $type: MediaType) {
+  Page(perPage: 5) {
+    media(search: $search, type: $type) {
+      id
+      title {
+        userPreferred
+        romaji
+        english
+        native
+      }
+      type
+      format
+      status
+      episodes
+      description
+      genres
+      mediaListEntry {
+        id
+        status
+      }
+      externalLinks {
+        id
+        url
+        site
+      }
+      coverImage {
+        extraLarge
+      }
+      trailer {
+        id
+        site
+        thumbnail
+      }
+    }
+  }
+}

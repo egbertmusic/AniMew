@@ -1,0 +1,2 @@
+# This is a placeholder since Seerr is a REST API, not GraphQL.
+# I will use OkHttp for these requests in the repository.
