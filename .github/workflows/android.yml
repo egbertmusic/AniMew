@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - uses: actions/checkout@v4
     
@@ -32,7 +34,11 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew assembleDebug
 
-    - name: Upload APK
+    - name: Rename APK for Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/AniMew-${{ github.ref_name }}.apk
+
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: app-debug
@@ -42,18 +48,20 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/v')
       uses: softprops/action-gh-release@v2
       with:
-        files: app/build/outputs/apk/debug/app-debug.apk
+        name: AniMew ${{ github.ref_name }}
+        files: app/build/outputs/apk/debug/AniMew-${{ github.ref_name }}.apk
         body: |
-          ## AniMew v${{ github.ref_name }}
+          ## Welcome to AniMew! 🐾
+          The first official release of your personalized AniList tracker.
           
           ### What's New
-          - Initial release of AniMew!
-          - Modern Material 3 UI with Amoled and Glass themes.
-          - Library sync with AniList.
-          - Media server integration (Seerr/Plex/Jellyfin).
+          - ✨ **Modern UI**: Material 3 with Amoled and "Liquid Glass" themes.
+          - 📚 **Library Sync**: Keep track of your anime and manga via AniList.
+          - 🍿 **Media Servers**: Integrated support for Seerr, Plex, and Jellyfin.
+          - 📱 **Home Screen Widgets**: Stay updated with airing schedules and stats.
           
           ### Installation
-          Download the `app-debug.apk` below and install it on your Android device.
+          Download the **AniMew-${{ github.ref_name }}.apk** attached below.
         draft: false
         prerelease: false
       env:
