@@ -2,6 +2,7 @@ package com.example.anilistapp.ui.detail
 
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -111,7 +112,7 @@ fun MediaDetailScreen(
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
-                    
+
                     if (state.mediaId != null && !state.isInWatchlist) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
@@ -130,7 +131,7 @@ fun MediaDetailScreen(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     LocalizableText(
                         text = "Synopsis",
                         style = MaterialTheme.typography.titleMedium,
@@ -205,27 +206,112 @@ fun MediaDetailScreen(
                             localizationManager = viewModel.localizationManager
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        
-                        val videoId = state.youtubeVideoId
-                        
-                        // High-compatibility Stealth player to avoid the 152 error flash
-                        // and ensure the consent wall is automatically bypassed.
+
+                        val rawVideoId = state.youtubeVideoId
+                        val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+                        val cleanId = remember(rawVideoId) {
+                            when {
+                                rawVideoId == null -> null
+                                rawVideoId.contains("v=") -> rawVideoId.substringAfter("v=").substringBefore("&")
+                                rawVideoId.contains("youtu.be/") -> rawVideoId.substringAfter("youtu.be/").substringBefore("?")
+                                rawVideoId.contains("shorts/") -> rawVideoId.substringAfter("shorts/").substringBefore("?")
+                                else -> rawVideoId
+                            }
+                        }
+
+                        var embedFailed by remember { mutableStateOf(false) }
+
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(220.dp)
+                                .aspectRatio(16f / 9f) // Ensures standard video proportions
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color.Black)
                         ) {
-                            // High-precision stealth player
-                            TrailerWebViewFallback(videoId ?: "")
+                            if (cleanId != null) {
+                                if (embedFailed) {
+                                    // CLEAN IFRAME WEBVIEW FALLBACK (No top/bottom YouTube web bars)
+                                    AndroidView(
+                                        factory = { ctx ->
+                                            android.webkit.WebView(ctx).apply {
+                                                layoutParams = android.view.ViewGroup.LayoutParams(
+                                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                                )
+                                                settings.javaScriptEnabled = true
+                                                settings.domStorageEnabled = true
+                                                settings.mediaPlaybackRequiresUserGesture = false
+                                                webChromeClient = android.webkit.WebChromeClient()
+                                                webViewClient = android.webkit.WebViewClient()
+
+                                                val embedHtml = """
+                                                    <!DOCTYPE html>
+                                                    <html>
+                                                    <head>
+                                                        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                                                        <style>
+                                                            body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: black; overflow: hidden; }
+                                                            iframe { width: 100%; height: 100%; border: none; }
+                                                        </style>
+                                                    </head>
+                                                    <body>
+                                                        <iframe src="https://www.youtube.com/embed/$cleanId?autoplay=0&controls=1&modestbranding=1&rel=0&playsinline=1" 
+                                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                                                allowfullscreen>
+                                                        </iframe>
+                                                    </body>
+                                                    </html>
+                                                """.trimIndent()
+
+                                                loadDataWithBaseURL("https://www.youtube.com", embedHtml, "text/html", "utf-8", null)
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    // Native YouTubePlayerView
+                                    AndroidView(
+                                        factory = { ctx ->
+                                            YouTubePlayerView(ctx).apply {
+                                                enableAutomaticInitialization = false
+                                                lifecycleOwner.lifecycle.addObserver(this)
+
+                                                val options = IFramePlayerOptions.Builder()
+                                                    .controls(1)
+                                                    .rel(0)
+                                                    .origin("https://www.youtube-nocookie.com")
+                                                    .build()
+
+                                                initialize(object : AbstractYouTubePlayerListener() {
+                                                    override fun onReady(youTubePlayer: YouTubePlayer) {
+                                                        youTubePlayer.cueVideo(cleanId, 0f)
+                                                    }
+
+                                                    override fun onError(youTubePlayer: YouTubePlayer, error: PlayerConstants.PlayerError) {
+                                                        if (error == PlayerConstants.PlayerError.VIDEO_NOT_PLAYABLE_IN_EMBEDDED_PLAYER || 
+                                                            error.name.contains("UNKNOWN") || 
+                                                            error.name.contains("HTML5")) {
+                                                            embedFailed = true
+                                                        } else {
+                                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$cleanId"))
+                                                            context.startActivity(intent)
+                                                        }
+                                                    }
+                                                }, options)
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                            }
                         }
-                        
+
                         Spacer(modifier = Modifier.height(12.dp))
-                        
+
                         OutlinedButton(
                             onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$videoId"))
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$cleanId"))
                                 context.startActivity(intent)
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -233,7 +319,7 @@ fun MediaDetailScreen(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                         ) {
                             Icon(
-                                imageVector = Icons.Default.PlayArrow, 
+                                imageVector = Icons.Default.PlayArrow,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -244,7 +330,7 @@ fun MediaDetailScreen(
 
                     if (state.isSeerrEnabled) {
                         Spacer(modifier = Modifier.height(32.dp))
-                        
+
                         ElevatedCard(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                             shape = RoundedCornerShape(24.dp),
@@ -282,7 +368,7 @@ fun MediaDetailScreen(
                                 }
 
                                 Spacer(modifier = Modifier.height(16.dp))
-                                
+
                                 val seerrStatus = state.seerrMatch?.status
                                 val isFullyAvailable = seerrStatus == 5 || seerrStatus == 6
                                 val isProcessing = seerrStatus == 2 || seerrStatus == 3
@@ -299,15 +385,15 @@ fun MediaDetailScreen(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Icon(
-                                                imageVector = if (seerrStatus == 6) Icons.AutoMirrored.Filled.Dvr else Icons.Default.Check, 
-                                                contentDescription = null, 
+                                                imageVector = if (seerrStatus == 6) Icons.AutoMirrored.Filled.Dvr else Icons.Default.Check,
+                                                contentDescription = null,
                                                 tint = Color.Green
                                             )
                                             Spacer(modifier = Modifier.width(12.dp))
                                             Column {
                                                 Text(
-                                                    if (seerrStatus == 6) "Available on your Media Server!" else "Already available on your server!", 
-                                                    color = MaterialTheme.colorScheme.onSurface, 
+                                                    if (seerrStatus == 6) "Available on your Media Server!" else "Already available on your server!",
+                                                    color = MaterialTheme.colorScheme.onSurface,
                                                     style = MaterialTheme.typography.bodyMedium
                                                 )
                                                 Text("Sync may be experimental for some items", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), style = MaterialTheme.typography.labelSmall)
@@ -374,7 +460,7 @@ fun MediaDetailScreen(
                                             style = MaterialTheme.typography.labelSmall,
                                             color = Color.LightGray
                                         )
-                                        
+
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -445,82 +531,4 @@ fun MediaDetailScreen(
     }
 }
 
-@Composable
-fun TrailerWebViewFallback(videoId: String) {
-    if (videoId.isEmpty()) return
-    
-    val mobileUA = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36"
 
-    AndroidView(
-        factory = { ctx ->
-            android.webkit.WebView(ctx).apply {
-                layoutParams = android.view.ViewGroup.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                )
-                
-                setBackgroundColor(android.graphics.Color.BLACK)
-                
-                webChromeClient = android.webkit.WebChromeClient()
-                webViewClient = object : android.webkit.WebViewClient() {
-                    override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
-                        val script = """
-                            (function() {
-                                function hideElements() {
-                                    var selectors = [
-                                        'header', 'footer', '.ytm-app-header-renderer', '.ytm-mobile-topbar-renderer',
-                                        '.ytm-watch-metadata-renderer', '.ytm-item-section-renderer', 
-                                        '.ytm-pivot-bar-renderer', '.ytm-open-app-button',
-                                        '.ytp-chrome-top', '.ytp-show-cards-title', '.ytp-gradient-top',
-                                        '.ytm-smart-app-banner', '#header', '#masthead-container',
-                                        '.ytm-video-overlay-renderer', '.ytm-interstitial-renderer'
-                                    ];
-                                    selectors.forEach(function(s) {
-                                        document.querySelectorAll(s).forEach(function(el) {
-                                            el.style.display = 'none';
-                                            el.style.visibility = 'hidden';
-                                            el.style.height = '0';
-                                        });
-                                    });
-                                    
-                                    // Force video to fill
-                                    var video = document.querySelector('video');
-                                    if (video) {
-                                        video.style.position = 'fixed';
-                                        video.style.top = '0';
-                                        video.style.left = '0';
-                                        video.style.width = '100vw';
-                                        video.style.height = '100vh';
-                                        video.style.zIndex = '999999';
-                                        video.style.objectFit = 'cover';
-                                        if (video.paused) video.play();
-                                    }
-                                }
-
-                                hideElements();
-                                
-                                // Aggressive observer to catch dynamic content
-                                var observer = new MutationObserver(hideElements);
-                                observer.observe(document.body, { childList: true, subtree: true });
-                                
-                                // Fallback interval
-                                setInterval(hideElements, 1000);
-                            })();
-                        """.trimIndent()
-                        view?.evaluateJavascript(script, null)
-                    }
-                }
-                
-                settings.apply {
-                    javaScriptEnabled = true
-                    domStorageEnabled = true
-                    mediaPlaybackRequiresUserGesture = false
-                    userAgentString = mobileUA
-                }
-                
-                loadUrl("https://m.youtube.com/watch?v=$videoId")
-            }
-        },
-        modifier = Modifier.fillMaxSize()
-    )
-}

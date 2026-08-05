@@ -140,12 +140,14 @@ private val LiquidGlassColorScheme = darkColorScheme(
     secondary = Color.White.copy(alpha = 0.8f),
     tertiary = AniListTeal,
     background = Color.Black,
-    surface = Color.White.copy(alpha = 0.05f),
+    surface = Color.White.copy(alpha = 0.15f),
+    surfaceVariant = Color.White.copy(alpha = 0.25f),
     onPrimary = Color.Black,
     onSecondary = Color.White,
     onTertiary = Color.White,
     onBackground = Color.White,
     onSurface = Color.White,
+    onSurfaceVariant = Color.White
 )
 
 private val StandardDarkColorScheme = darkColorScheme(

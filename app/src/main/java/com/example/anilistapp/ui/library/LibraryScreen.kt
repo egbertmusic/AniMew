@@ -229,7 +229,7 @@ fun LibraryScreen(
                                         start = 8.dp,
                                         top = 8.dp,
                                         end = 8.dp,
-                                        bottom = 8.dp + contentPadding.calculateBottomPadding()
+                                        bottom = 160.dp + contentPadding.calculateBottomPadding() // Increased padding further for floating nav bar
                                     ),
                                     modifier = Modifier.fillMaxSize()
                                 ) {
@@ -269,7 +269,7 @@ fun LibraryScreen(
             ModalBottomSheet(
                 onDismissRequest = { showActionMenu = false },
                 sheetState = rememberModalBottomSheetState(),
-                containerColor = MaterialTheme.colorScheme.surface,
+                containerColor = if (state.themeMode == AppTheme.LIQUID_GLASS) Color(0xFF1E1E1E).copy(alpha = 0.95f) else MaterialTheme.colorScheme.surface,
                 dragHandle = { BottomSheetDefaults.DragHandle() }
             ) {
                 Column(

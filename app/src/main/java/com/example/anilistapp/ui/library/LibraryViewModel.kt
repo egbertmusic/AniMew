@@ -428,11 +428,33 @@ class LibraryViewModel @Inject constructor(
         if (isDisabled) return
         
         viewModelScope.launch {
+            // OPTIMISTIC UPDATE: Update UI instantly
+            val oldList = _state.value.mediaList
+            val newList = oldList.map { entry ->
+                if (entry.media?.id == mediaId) {
+                    // Create a copy of the entry with updated progress
+                    // Note: entry is a generated Apollo class, so we might need to be careful with copying
+                    // if it doesn't have a simple copy method.
+                    // But usually they are data classes.
+                    entry.copy(progress = newProgress)
+                } else entry
+            }
+            _state.update { it.copy(mediaList = newList) }
+
             try {
+                Log.d("LibraryVM", "Updating progress for $mediaId to $newProgress")
                 repository.updateProgress(mediaId, newProgress)
-                userId?.let { fetchList(it, _state.value.selectedType, _state.value.selectedStatus) }
+                
+                // Slight delay to allow AniList backend to propagate the update
+                kotlinx.coroutines.delay(1200)
+                
+                userId?.let { 
+                    Log.d("LibraryVM", "Re-fetching list after update for user $it")
+                    fetchList(it, _state.value.selectedType, _state.value.selectedStatus, forceRefresh = true) 
+                }
             } catch (e: Exception) {
-                _state.update { it.copy(error = "Update failed: ${e.message}") }
+                Log.e("LibraryVM", "Update failed, rolling back", e)
+                _state.update { it.copy(mediaList = oldList, error = "Update failed: ${e.message}") }
             }
         }
     }

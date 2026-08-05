@@ -77,10 +77,6 @@ fun MediaCard(
                 if (glass.useBlur) {
                     Modifier.border(0.5.dp, glass.borderColor, RoundedCornerShape(28.dp))
                 } else Modifier
-            )
-            .combinedClickable(
-                onClick = { onMediaClick(title, media.id, type) },
-                onLongClick = onLongClick
             ),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(
@@ -94,6 +90,10 @@ fun MediaCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(200.dp)
+                        .combinedClickable(
+                            onClick = { onMediaClick(title, media.id, type) },
+                            onLongClick = onLongClick
+                        )
                 ) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
@@ -157,20 +157,30 @@ fun MediaCard(
                         .padding(horizontal = 20.dp, vertical = 8.dp)
                         .fillMaxWidth()
                 ) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    
-                    Text(
-                        text = if (totalEpisodes > 0) "$totalEpisodes Episodes" else "Ongoing",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
+                    // Make the title area also clickable
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .combinedClickable(
+                                onClick = { onMediaClick(title, media.id, type) },
+                                onLongClick = onLongClick
+                            )
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        
+                        Text(
+                            text = if (totalEpisodes > 0) "$totalEpisodes Episodes" else "Ongoing",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        )
+                    }
 
                     Spacer(modifier = Modifier.weight(1f))
 
@@ -208,14 +218,14 @@ fun MediaCard(
                             ) {
                                 IconButton(
                                     onClick = { if (progress > 0) onDecrease(media.id, progress - 1) },
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(40.dp) // Increased touch target
                                 ) {
                                     Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = MaterialTheme.colorScheme.onSurface)
                                 }
                                 VerticalDivider(modifier = Modifier.height(16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
                                 IconButton(
                                     onClick = { if (totalEpisodes == 0 || progress < totalEpisodes) onIncrease(media.id, progress + 1) },
-                                    modifier = Modifier.size(32.dp)
+                                    modifier = Modifier.size(40.dp) // Increased touch target
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = "Increase", tint = MaterialTheme.colorScheme.onSurface)
                                 }

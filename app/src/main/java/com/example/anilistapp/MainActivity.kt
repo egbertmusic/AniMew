@@ -6,8 +6,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.Icons
@@ -17,8 +20,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -97,85 +102,87 @@ class MainActivity : ComponentActivity() {
                                         
                                         Surface(
                                             modifier = Modifier
-                                                .padding(horizontal = 24.dp, vertical = 20.dp)
+                                                .padding(horizontal = 24.dp)
+                                                .navigationBarsPadding()
+                                                .padding(bottom = 16.dp)
                                                 .fillMaxWidth()
                                                 .then(
                                                     if (glass.useBlur) {
-                                                        Modifier.border(0.5.dp, glass.borderColor.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
+                                                        Modifier.border(0.5.dp, glass.borderColor.copy(alpha = 0.5f), RoundedCornerShape(28.dp))
                                                     } else {
-                                                        Modifier.border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
+                                                        Modifier.border(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), RoundedCornerShape(28.dp))
                                                     }
                                                 ),
-                                            shape = RoundedCornerShape(24.dp),
-                                            color = if (glass.useBlur) Color.White.copy(alpha = 0.03f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
+                                            shape = RoundedCornerShape(28.dp),
+                                            color = if (glass.useBlur) Color(0xFF1A1C1E) else MaterialTheme.colorScheme.surface,
                                             tonalElevation = if (glass.useBlur) 0.dp else 12.dp
                                         ) {
-                                            NavigationBar(
-                                                containerColor = Color.Transparent,
-                                                tonalElevation = 0.dp,
-                                                windowInsets = WindowInsets(0, 0, 0, 0),
-                                                modifier = Modifier.height(64.dp)
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(80.dp)
+                                                    .padding(horizontal = 8.dp),
+                                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                                verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                NavigationBarItem(
-                                                    icon = { Icon(Icons.Default.CollectionsBookmark, contentDescription = null) },
-                                                    label = { Text("Library") },
-                                                    selected = currentDestination?.route == "library",
-                                                    onClick = {
-                                                        navController.navigate("library") {
-                                                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                                            launchSingleTop = true
-                                                            restoreState = true
+                                                val items = mutableListOf<Triple<String, String, androidx.compose.ui.graphics.vector.ImageVector>>()
+                                                items.add(Triple("Library", "library", Icons.Default.CollectionsBookmark))
+                                                if (enableDiscoverFeed) items.add(Triple("Discover", "discover", Icons.Default.Explore))
+                                                if (enableProfileTab) items.add(Triple("Profile", "profile", Icons.Default.AccountCircle))
+                                                
+                                                items.forEach { (label, route, icon) ->
+                                                    val selected = currentDestination?.route == route
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .fillMaxHeight()
+                                                            .clickable(
+                                                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                                                indication = null,
+                                                                onClick = {
+                                                                    navController.navigate(route) {
+                                                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                                        launchSingleTop = true
+                                                                        restoreState = true
+                                                                    }
+                                                                }
+                                                            ),
+                                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                                        verticalArrangement = Arrangement.Center
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(width = 64.dp, height = 32.dp)
+                                                                .background(
+                                                                    color = if (selected) {
+                                                                        if (glass.useBlur) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.secondaryContainer
+                                                                    } else Color.Transparent,
+                                                                    shape = CircleShape
+                                                                ),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = icon,
+                                                                contentDescription = null,
+                                                                tint = if (selected) {
+                                                                    if (glass.useBlur) Color.White else MaterialTheme.colorScheme.primary
+                                                                } else {
+                                                                    if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant
+                                                                }
+                                                            )
                                                         }
-                                                    },
-                                                    colors = NavigationBarItemDefaults.colors(
-                                                        selectedIconColor = if (glass.useBlur) Color.White else MaterialTheme.colorScheme.primary,
-                                                        selectedTextColor = if (glass.useBlur) Color.White else MaterialTheme.colorScheme.primary,
-                                                        unselectedIconColor = if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        unselectedTextColor = if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        indicatorColor = if (glass.useBlur) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.secondaryContainer
-                                                    )
-                                                )
-                                                if (enableDiscoverFeed) {
-                                                    NavigationBarItem(
-                                                        icon = { Icon(Icons.Default.Explore, contentDescription = null) },
-                                                        label = { Text("Discover") },
-                                                        selected = currentDestination?.route == "discover",
-                                                        onClick = {
-                                                            navController.navigate("discover") {
-                                                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                                                launchSingleTop = true
-                                                                restoreState = true
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                        Text(
+                                                            text = label,
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                                            color = if (selected) {
+                                                                if (glass.useBlur) Color.White else MaterialTheme.colorScheme.primary
+                                                            } else {
+                                                                if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant
                                                             }
-                                                        },
-                                                        colors = NavigationBarItemDefaults.colors(
-                                                            selectedIconColor = if (glass.useBlur) Color.White else MaterialTheme.colorScheme.primary,
-                                                            selectedTextColor = if (glass.useBlur) Color.White else MaterialTheme.colorScheme.primary,
-                                                            unselectedIconColor = if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            unselectedTextColor = if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            indicatorColor = if (glass.useBlur) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.secondaryContainer
                                                         )
-                                                    )
-                                                }
-                                                if (enableProfileTab) {
-                                                    NavigationBarItem(
-                                                        icon = { Icon(Icons.Default.AccountCircle, contentDescription = null) },
-                                                        label = { Text("Profile") },
-                                                        selected = currentDestination?.route == "profile",
-                                                        onClick = {
-                                                            navController.navigate("profile") {
-                                                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                                                launchSingleTop = true
-                                                                restoreState = true
-                                                            }
-                                                        },
-                                                        colors = NavigationBarItemDefaults.colors(
-                                                            selectedIconColor = if (glass.useBlur) Color.White else MaterialTheme.colorScheme.primary,
-                                                            selectedTextColor = if (glass.useBlur) Color.White else MaterialTheme.colorScheme.primary,
-                                                            unselectedIconColor = if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            unselectedTextColor = if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                            indicatorColor = if (glass.useBlur) Color.White.copy(alpha = 0.15f) else MaterialTheme.colorScheme.secondaryContainer
-                                                        )
-                                                    )
+                                                    }
                                                 }
                                             }
                                         }
