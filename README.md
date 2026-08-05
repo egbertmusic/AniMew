@@ -2,7 +2,7 @@
 
 A sleek, feature-rich AniList tracker for Android, built with Jetpack Compose and Material 3. **AniMew** helps you manage your anime/manga library, discover new content, and integrates with your personal media servers.
 
-<img width="1080" height="2400" alt="Screenshot_20260805-011510_anilist app" src="https://github.com/user-attachments/assets/b9d0e26d-9295-4e14-87ca-2e539afb9261" />
+<img width="108" height="240" alt="Screenshot_20260805-011510_anilist app" src="https://github.com/user-attachments/assets/b9d0e26d-9295-4e14-87ca-2e539afb9261" />
 
 
 ## Features
