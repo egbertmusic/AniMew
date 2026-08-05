@@ -612,18 +612,56 @@ fun SettingsScreen(
                         }
 
                         Text("Advanced Server Selection", style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            "Optional: Only required if you have multiple Sonarr/Radarr instances. Seerr uses its default server if left blank.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        if (state.availableSonarrServers.isNotEmpty()) {
+                            Text("Detected Sonarr Servers", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                state.availableSonarrServers.forEach { server ->
+                                    FilterChip(
+                                        selected = state.seerrSonarrServerId == server.id,
+                                        onClick = { viewModel.onSeerrAdvancedChanged(state.seerrRadarrServerId, server.id, state.seerrRadarrRootFolder, state.seerrSonarrRootFolder) },
+                                        label = { Text("${server.name} (ID: ${server.id})${if (server.isDefault) " [Default]" else ""}") }
+                                    )
+                                }
+                            }
+                        }
+
+                        if (state.availableRadarrServers.isNotEmpty()) {
+                            Text("Detected Radarr Servers", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.secondary)
+                            Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                state.availableRadarrServers.forEach { server ->
+                                    FilterChip(
+                                        selected = state.seerrRadarrServerId == server.id,
+                                        onClick = { viewModel.onSeerrAdvancedChanged(server.id, state.seerrSonarrServerId, state.seerrRadarrRootFolder, state.seerrSonarrRootFolder) },
+                                        label = { Text("${server.name} (ID: ${server.id})${if (server.isDefault) " [Default]" else ""}") }
+                                    )
+                                }
+                            }
+                        }
+
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedTextField(
                                 value = state.seerrRadarrServerId?.toString() ?: "",
-                                onValueChange = { viewModel.onSeerrAdvancedChanged(it.toIntOrNull(), state.seerrSonarrServerId, state.seerrRadarrRootFolder, state.seerrSonarrRootFolder) },
-                                label = { Text("Radarr ID") },
+                                onValueChange = { 
+                                    val id = if (it.isEmpty()) null else it.toIntOrNull()
+                                    viewModel.onSeerrAdvancedChanged(id, state.seerrSonarrServerId, state.seerrRadarrRootFolder, state.seerrSonarrRootFolder) 
+                                },
+                                label = { Text("Radarr ID (Opt)") },
                                 modifier = Modifier.weight(1f),
                                 singleLine = true
                             )
                             OutlinedTextField(
                                 value = state.seerrSonarrServerId?.toString() ?: "",
-                                onValueChange = { viewModel.onSeerrAdvancedChanged(state.seerrRadarrServerId, it.toIntOrNull(), state.seerrRadarrRootFolder, state.seerrSonarrRootFolder) },
-                                label = { Text("Sonarr ID") },
+                                onValueChange = { 
+                                    val id = if (it.isEmpty()) null else it.toIntOrNull()
+                                    viewModel.onSeerrAdvancedChanged(state.seerrRadarrServerId, id, state.seerrRadarrRootFolder, state.seerrSonarrRootFolder) 
+                                },
+                                label = { Text("Sonarr ID (Opt)") },
                                 modifier = Modifier.weight(1f),
                                 singleLine = true
                             )

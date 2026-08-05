@@ -51,6 +51,8 @@ data class SettingsState(
     val seerrTestResult: String? = null,
     val jellyfinTestResult: String? = null,
     val plexTestResult: String? = null,
+    val availableSonarrServers: List<com.example.anilistapp.data.SeerrServer> = emptyList(),
+    val availableRadarrServers: List<com.example.anilistapp.data.SeerrServer> = emptyList(),
     val isSaved: Boolean = false
 )
 
@@ -330,9 +332,19 @@ class SettingsViewModel @Inject constructor(
             _state.value = _state.value.copy(seerrTestResult = "Testing...")
             repository.saveSeerrSettings(_state.value.seerrUrl, _state.value.seerrApiKey)
             val success = seerrRepository.testConnection()
-            _state.value = _state.value.copy(
-                seerrTestResult = if (success) "Connection Successful!" else "Connection Failed."
-            )
+            if (success) {
+                val sonarr = seerrRepository.getSonarrSettings()
+                val radarr = seerrRepository.getRadarrSettings()
+                _state.value = _state.value.copy(
+                    seerrTestResult = "Connection Successful!",
+                    availableSonarrServers = sonarr,
+                    availableRadarrServers = radarr
+                )
+            } else {
+                _state.value = _state.value.copy(
+                    seerrTestResult = "Connection Failed."
+                )
+            }
         }
     }
 
