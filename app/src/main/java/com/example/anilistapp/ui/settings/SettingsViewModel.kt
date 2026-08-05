@@ -40,6 +40,8 @@ data class SettingsState(
     val widgetThemeMode: AppTheme = AppTheme.DARK,
     val enableDiscoverFeed: Boolean = true,
     val enableProfileTab: Boolean = true,
+    val groupSeasons: Boolean = true,
+    val showMoreContent: Boolean = true,
     val jellyfinLibraryId: String = "",
     val plexLibraryId: String = "",
     val jellyfinLibraries: List<Pair<String, String>> = emptyList(),
@@ -95,6 +97,8 @@ class SettingsViewModel @Inject constructor(
             val pLib = repository.plexLibraryId.first()
             val discoverFeed = repository.enableDiscoverFeed.first()
             val profileTab = repository.enableProfileTab.first()
+            val group = repository.groupSeasons.first()
+            val moreContent = repository.showMoreContent.first()
 
             val customTheme = customThemeJson?.let {
                 try { kotlinx.serialization.json.Json.decodeFromString<com.example.anilistapp.ui.theme.CustomTheme>(it) } catch (e: Exception) { null }
@@ -128,7 +132,9 @@ class SettingsViewModel @Inject constructor(
                 customTheme = customTheme,
                 widgetThemeMode = AppTheme.valueOf(widgetTheme),
                 enableDiscoverFeed = discoverFeed,
-                enableProfileTab = profileTab
+                enableProfileTab = profileTab,
+                groupSeasons = group,
+                showMoreContent = moreContent
             )
             
             if (jellyfinUrl.isNotEmpty() && jellyfinApiKey.isNotEmpty()) {
@@ -255,6 +261,14 @@ class SettingsViewModel @Inject constructor(
         _state.value = _state.value.copy(enableProfileTab = enable, isSaved = false)
     }
 
+    fun onGroupSeasonsChanged(group: Boolean) {
+        _state.value = _state.value.copy(groupSeasons = group, isSaved = false)
+    }
+
+    fun onShowMoreContentChanged(show: Boolean) {
+        _state.value = _state.value.copy(showMoreContent = show, isSaved = false)
+    }
+
     fun onThemeChanged(theme: AppTheme) {
         _state.value = _state.value.copy(themeMode = theme, isSaved = false)
     }
@@ -378,6 +392,8 @@ class SettingsViewModel @Inject constructor(
             repository.setWidgetThemeMode(_state.value.widgetThemeMode.name)
             repository.setEnableDiscoverFeed(_state.value.enableDiscoverFeed)
             repository.setEnableProfileTab(_state.value.enableProfileTab)
+            repository.setGroupSeasons(_state.value.groupSeasons)
+            repository.setShowMoreContent(_state.value.showMoreContent)
             
             _state.value = _state.value.copy(isSaved = true)
         }

@@ -2,12 +2,16 @@ package com.example.anilistapp.ui.detail
 
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -21,6 +25,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -28,11 +33,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
+import com.example.anilistapp.data.SeerrSeasonInfo
 import com.example.anilistapp.ui.components.LocalizableText
 import com.example.anilistapp.ui.theme.CardDark
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
@@ -41,7 +48,7 @@ import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTube
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.options.IFramePlayerOptions
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun MediaDetailScreen(
     title: String,
@@ -113,6 +120,64 @@ fun MediaDetailScreen(
                         fontWeight = FontWeight.Bold
                     )
 
+                    if (state.relatedMedia.any { it.relationType in listOf("PREQUEL", "SEQUEL", "PARENT", "SIDE_STORY") }) {
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            "Series Timeline",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            state.relatedMedia.filter { it.relationType in listOf("PREQUEL", "SEQUEL", "PARENT", "SIDE_STORY") || it.id == state.mediaId }
+                                .distinctBy { it.id }
+                                .forEach { related ->
+                                    val isCurrent = related.id == state.mediaId
+                                    Box(
+                                        modifier = Modifier
+                                            .width(70.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                                            .border(
+                                                width = if (isCurrent) 2.dp else 1.dp,
+                                                color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.2f),
+                                                shape = RoundedCornerShape(8.dp)
+                                            )
+                                            .clickable { if (!isCurrent) viewModel.switchSeason(related.id) }
+                                    ) {
+                                        Column {
+                                            Box(modifier = Modifier.height(100.dp).fillMaxWidth()) {
+                                                AsyncImage(
+                                                    model = related.coverImage,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                                if (isCurrent) {
+                                                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {
+                                                        Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                                    }
+                                                }
+                                            }
+                                            Text(
+                                                text = related.relationType.replace("_", " "),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontSize = 6.sp,
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                color = if(isCurrent) MaterialTheme.colorScheme.primary else Color.Gray,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
+                        }
+                    }
+
                     if (state.mediaId != null && !state.isInWatchlist) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Button(
@@ -141,10 +206,86 @@ fun MediaDetailScreen(
                         localizationManager = viewModel.localizationManager
                     )
                     Text(
-                        text = state.kitsuDetails?.synopsis ?: "No synopsis available.",
+                        text = state.synopsis.takeIf { it.isNotBlank() }?.replace(Regex("<[^>]*>"), "") ?: "No synopsis available.",
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 4.dp)
                     )
+
+                    if (state.showMoreContentSection && state.relatedMedia.any { it.id != state.mediaId }) {
+                        Spacer(modifier = Modifier.height(40.dp))
+                        Text(
+                            "More of this series",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            state.relatedMedia.filter { it.id != state.mediaId }.forEach { related ->
+                                ElevatedCard(
+                                    modifier = Modifier.width(140.dp).clickable { viewModel.switchSeason(related.id) },
+                                    shape = RoundedCornerShape(16.dp),
+                                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+                                ) {
+                                    Column {
+                                        Box {
+                                            AsyncImage(
+                                                model = related.coverImage,
+                                                contentDescription = related.title,
+                                                modifier = Modifier.height(200.dp).fillMaxWidth(),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                            Surface(
+                                                modifier = Modifier.padding(8.dp).align(Alignment.TopEnd),
+                                                color = when(related.relationType) {
+                                                    "PREQUEL" -> Color(0xFF4CAF50)
+                                                    "SEQUEL" -> Color(0xFF2196F3)
+                                                    "SIDE_STORY" -> Color(0xFFFF9800)
+                                                    else -> Color.Black.copy(alpha = 0.6f)
+                                                },
+                                                shape = RoundedCornerShape(4.dp)
+                                            ) {
+                                                Text(
+                                                    related.relationType.replace("_", " "),
+                                                    color = Color.White,
+                                                    fontSize = 8.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                        Column(modifier = Modifier.padding(8.dp)) {
+                                            Text(
+                                                related.title,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                minLines = 2
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                Surface(
+                                                    color = if (related.type == "MANGA") Color(0xFFE91E63) else Color(0xFF2196F3),
+                                                    shape = RoundedCornerShape(4.dp)
+                                                ) {
+                                                    Text(related.type, fontSize = 8.sp, modifier = Modifier.padding(horizontal = 4.dp), color = Color.White)
+                                                }
+                                                related.format?.let {
+                                                    Surface(color = MaterialTheme.colorScheme.secondary, shape = RoundedCornerShape(4.dp)) {
+                                                        Text(it, fontSize = 8.sp, modifier = Modifier.padding(horizontal = 4.dp), color = Color.White)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     if (state.streamLinks.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(24.dp))
@@ -370,9 +511,13 @@ fun MediaDetailScreen(
                                 Spacer(modifier = Modifier.height(16.dp))
 
                                 val seerrStatus = state.seerrMatch?.status
-                                val isFullyAvailable = seerrStatus == 5 || seerrStatus == 6
+                                val isTv = state.seerrMatch?.type == "tv"
+                                val allSeasonsAvailable = isTv && state.seerrSeasons.isNotEmpty() && 
+                                                          state.seerrSeasons.all { state.availableSeasons.contains(it.seasonNumber) }
+                                
+                                val isFullyAvailable = (seerrStatus == 5 || seerrStatus == 6) && (!isTv || allSeasonsAvailable)
                                 val isProcessing = seerrStatus == 2 || seerrStatus == 3
-                                val isPartial = seerrStatus == 4
+                                val isPartial = seerrStatus == 4 || (isTv && !allSeasonsAvailable && state.availableSeasons.isNotEmpty())
 
                                 if (isFullyAvailable) {
                                     Surface(
@@ -485,27 +630,85 @@ fun MediaDetailScreen(
                                         // Season Selector (Always show if TV)
                                         if (state.seerrMatch?.type != "movie") {
                                             Spacer(modifier = Modifier.height(16.dp))
-                                            Text(
-                                                "Select Seasons",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color.LightGray
-                                            )
-                                            val displaySeasons = if (state.seerrSeasons.isEmpty()) listOf(1) else state.seerrSeasons
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    "Select Seasons",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = Color.LightGray
+                                                )
+                                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    TextButton(
+                                                        onClick = { viewModel.selectAllSeasons() },
+                                                        contentPadding = PaddingValues(0.dp)
+                                                    ) {
+                                                        Text("Select All", fontSize = 10.sp)
+                                                    }
+                                                    TextButton(
+                                                        onClick = { viewModel.deselectAllSeasons() },
+                                                        contentPadding = PaddingValues(0.dp)
+                                                    ) {
+                                                        Text("Deselect All", fontSize = 10.sp)
+                                                    }
+                                                }
+                                            }
+                                            val displaySeasons = if (state.seerrSeasons.isEmpty()) listOf(SeerrSeasonInfo(1, null)) else state.seerrSeasons
                                             FlowRow(
                                                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                                             ) {
-                                                displaySeasons.forEach { seasonNum ->
+                                                displaySeasons.forEach { seasonInfo ->
+                                                    val seasonNum = seasonInfo.seasonNumber
                                                     val isSelected = state.selectedSeasons.contains(seasonNum)
-                                                    FilterChip(
-                                                        selected = isSelected,
-                                                        onClick = { viewModel.onSeasonToggle(seasonNum) },
-                                                        label = { Text("Season $seasonNum") },
-                                                        colors = FilterChipDefaults.filterChipColors(
-                                                            selectedContainerColor = com.example.anilistapp.ui.theme.SeerrPurple,
-                                                            selectedLabelColor = Color.White
-                                                        )
-                                                    )
+                                                    val isAvailable = state.availableSeasons.contains(seasonNum)
+                                                    
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .width(100.dp)
+                                                            .clip(RoundedCornerShape(12.dp))
+                                                            .background(if (isSelected) com.example.anilistapp.ui.theme.SeerrPurple.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                                            .border(
+                                                                width = if (isSelected) 2.dp else 1.dp,
+                                                                color = if (isSelected) com.example.anilistapp.ui.theme.SeerrPurple else (if(isAvailable) Color.Green.copy(alpha=0.5f) else Color.Gray.copy(alpha=0.3f)),
+                                                                shape = RoundedCornerShape(12.dp)
+                                                            )
+                                                            .alpha(if (isAvailable) 0.6f else 1.0f)
+                                                            .combinedClickable(
+                                                                onClick = { if (!isAvailable) viewModel.onSeasonToggle(seasonNum) },
+                                                                onLongClick = { 
+                                                                    viewModel.loadDetails("${state.title} Season $seasonNum")
+                                                                }
+                                                            )
+                                                    ) {
+                                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                            Box(modifier = Modifier.height(140.dp).fillMaxWidth()) {
+                                                                AsyncImage(
+                                                                    model = if (seasonInfo.posterPath != null) "https://image.tmdb.org/t/p/w300${seasonInfo.posterPath}" else state.posterUrl,
+                                                                    contentDescription = null,
+                                                                    modifier = Modifier.fillMaxSize(),
+                                                                    contentScale = ContentScale.Crop
+                                                                )
+                                                                if (isAvailable) {
+                                                                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {
+                                                                        Surface(color = Color.Green, shape = CircleShape, modifier = Modifier.size(24.dp)) {
+                                                                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.padding(4.dp))
+                                                                        }
+                                                                    }
+                                                                } else if (isSelected) {
+                                                                    Box(modifier = Modifier.fillMaxSize().background(com.example.anilistapp.ui.theme.SeerrPurple.copy(alpha = 0.2f)))
+                                                                }
+                                                            }
+                                                            Text(
+                                                                "Season $seasonNum",
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                                modifier = Modifier.padding(vertical = 4.dp),
+                                                                color = if(isAvailable) Color.Green else (if(isSelected) com.example.anilistapp.ui.theme.SeerrPurple else Color.White)
+                                                            )
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }

@@ -23,12 +23,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.example.anilistapp.ui.theme.CardDark
+import androidx.compose.runtime.mutableIntStateOf
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,19 +91,31 @@ fun SearchScreen(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-                    items(state.aniListResults, key = { it.id }) { result ->
-                        SearchItem(
-                            title = result.title?.userPreferred ?: "Unknown",
-                            overview = result.description ?: "No description.",
-                            posterUrl = result.coverImage?.extraLarge,
-                            genres = result.genres?.filterNotNull() ?: emptyList(),
-                            type = result.type?.name,
-                            format = result.format?.name,
-                            showTags = state.showSearchTags,
-                            isInList = result.mediaListEntry != null,
-                            onAddClick = { viewModel.addToWatchlist(result.title?.userPreferred ?: "") }
-                        ) {
-                            onMediaClick(result.title?.userPreferred ?: "", result.id, result.type?.name ?: "ANIME")
+                    if (state.groupSeasons && state.groupedAniListResults.isNotEmpty()) {
+                        items(state.groupedAniListResults.keys.toList()) { normalizedTitle ->
+                            val results = state.groupedAniListResults[normalizedTitle] ?: emptyList()
+                            GroupedSearchItem(
+                                results = results,
+                                showTags = state.showSearchTags,
+                                onAddClick = { viewModel.addToWatchlist(it) },
+                                onMediaClick = onMediaClick
+                            )
+                        }
+                    } else {
+                        items(state.aniListResults, key = { it.id }) { result ->
+                            SearchItem(
+                                title = result.title?.userPreferred ?: "Unknown",
+                                overview = result.description ?: "No description.",
+                                posterUrl = result.coverImage?.extraLarge,
+                                genres = result.genres?.filterNotNull() ?: emptyList(),
+                                type = result.type?.name,
+                                format = result.format?.name,
+                                showTags = state.showSearchTags,
+                                isInList = result.mediaListEntry != null,
+                                onAddClick = { viewModel.addToWatchlist(result.title?.userPreferred ?: "") }
+                            ) {
+                                onMediaClick(result.title?.userPreferred ?: "", result.id, result.type?.name ?: "ANIME")
+                            }
                         }
                     }
                 }
@@ -185,6 +200,67 @@ fun SearchScreen(
 }
 
 @Composable
+fun GroupedSearchItem(
+    results: List<com.example.anilistapp.SearchAniListQuery.Medium>,
+    showTags: Boolean = true,
+    onAddClick: (String) -> Unit,
+    onMediaClick: (String, Int, String) -> Unit
+) {
+    var selectedIndex by remember { mutableIntStateOf(results.size - 1) } // Default to latest
+    val current = results[selectedIndex]
+
+    SearchItem(
+        title = current.title?.userPreferred ?: "Unknown",
+        overview = current.description ?: "No description.",
+        posterUrl = current.coverImage?.extraLarge,
+        genres = current.genres?.filterNotNull() ?: emptyList(),
+        type = current.type?.name,
+        format = current.format?.name,
+        showTags = showTags,
+        isInList = current.mediaListEntry != null,
+        onAddClick = { onAddClick(current.title?.userPreferred ?: "") },
+        extraContent = {
+            if (results.size > 1) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    results.forEachIndexed { index, media ->
+                        val isSelected = index == selectedIndex
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedIndex = index },
+                            label = { 
+                                val label = media.title?.userPreferred ?: ""
+                                // Try to extract season number or just show S1, S2...
+                                val seasonMatch = Regex("(?i)season\\s+(\\d+)").find(label)
+                                val partMatch = Regex("(?i)part\\s+(\\d+)").find(label)
+                                
+                                val shortLabel = when {
+                                    media.format?.name == "MOVIE" -> "MOVIE"
+                                    seasonMatch != null -> seasonMatch.value
+                                    partMatch != null -> partMatch.value
+                                    current.type?.name == "MANGA" -> "V${index + 1}"
+                                    else -> "S${index + 1}"
+                                }
+                                Text(shortLabel, fontSize = 10.sp) 
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    ) {
+        onMediaClick(current.title?.userPreferred ?: "", current.id, current.type?.name ?: "ANIME")
+    }
+}
+
+@Composable
 fun SearchItem(
     title: String,
     overview: String,
@@ -195,6 +271,7 @@ fun SearchItem(
     showTags: Boolean = true,
     isInList: Boolean,
     onAddClick: () -> Unit,
+    extraContent: @Composable () -> Unit = {},
     onClick: () -> Unit
 ) {
     OutlinedCard(
@@ -242,14 +319,15 @@ fun SearchItem(
                         }
                         if (format != null) {
                             Surface(
-                                color = Color.DarkGray,
+                                color = if (format == "MOVIE") Color(0xFFFF5722) else Color.DarkGray,
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
                                     text = format,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
                                     fontSize = 10.sp,
-                                    color = Color.LightGray
+                                    color = Color.White,
+                                    fontWeight = if (format == "MOVIE") FontWeight.ExtraBold else FontWeight.Normal
                                 )
                             }
                         }
@@ -270,6 +348,8 @@ fun SearchItem(
                 }
 
                 Text(overview.replace(Regex("<[^>]*>"), ""), fontSize = 12.sp, maxLines = 2, color = MaterialTheme.colorScheme.onSurfaceVariant, overflow = TextOverflow.Ellipsis)
+                
+                extraContent()
             }
             
             if (!isInList) {

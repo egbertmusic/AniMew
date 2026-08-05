@@ -25,11 +25,13 @@ data class SearchState(
     val query: String = "",
     val kitsuResults: List<KitsuSearchResult> = emptyList(),
     val aniListResults: List<SearchAniListQuery.Medium> = emptyList(),
+    val groupedAniListResults: Map<String, List<SearchAniListQuery.Medium>> = emptyMap(),
     val seerrResults: List<SeerrSearchResult> = emptyList(),
     val customResults: Map<String, List<KitsuSearchResult>> = emptyMap(),
     val customSources: List<CustomSource> = emptyList(),
     val isLoading: Boolean = false,
     val showSearchTags: Boolean = true,
+    val groupSeasons: Boolean = true,
     val message: String? = null
 )
 
@@ -51,6 +53,14 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch {
             settingsRepository.showSearchTags.collect { show ->
                 _state.value = _state.value.copy(showSearchTags = show)
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.groupSeasons.collect { group ->
+                _state.value = _state.value.copy(groupSeasons = group)
+                if (_state.value.aniListResults.isNotEmpty()) {
+                    updateGroupedResults(_state.value.aniListResults)
+                }
             }
         }
         viewModelScope.launch {
@@ -101,9 +111,13 @@ class SearchViewModel @Inject constructor(
                 _state.value = _state.value.copy(
                     kitsuResults = kitsu,
                     aniListResults = aniList,
-                    seerrResults = seerr,
-                    customResults = customRes,
                     isLoading = false
+                )
+                updateGroupedResults(aniList)
+                
+                _state.value = _state.value.copy(
+                    seerrResults = seerr,
+                    customResults = customRes
                 )
             } else {
                 _state.value = _state.value.copy(kitsuResults = emptyList(), seerrResults = emptyList())
@@ -179,5 +193,38 @@ class SearchViewModel @Inject constructor(
 
     fun clearMessage() {
         _state.value = _state.value.copy(message = null)
+    }
+
+    private fun updateGroupedResults(results: List<SearchAniListQuery.Medium>) {
+        if (!_state.value.groupSeasons) {
+            _state.value = _state.value.copy(groupedAniListResults = emptyMap())
+            return
+        }
+
+        val grouped = results.groupBy { media ->
+            val title = media.title?.userPreferred ?: ""
+            val isMovieFamily = media.format == com.example.anilistapp.type.MediaFormat.MOVIE || 
+                               media.format == com.example.anilistapp.type.MediaFormat.OVA ||
+                               media.format == com.example.anilistapp.type.MediaFormat.SPECIAL
+            
+            // Keep Movies separate even if they share a base title
+            val groupingFormat = if (isMovieFamily) "MOVIE_${media.id}" else "TV"
+            "${normalizeTitle(title)}|${media.type}|$groupingFormat"
+        }
+        _state.value = _state.value.copy(groupedAniListResults = grouped)
+    }
+
+    private fun normalizeTitle(title: String): String {
+        // More robust normalization
+        return title
+            .replace(Regex("(?i)\\s+season\\s+\\d+.*"), "")
+            .replace(Regex("(?i)\\s+part\\s+\\d+.*"), "")
+            .replace(Regex("(?i)\\s+cour\\s+\\d+.*"), "")
+            .replace(Regex("(?i)\\s+\\d+$"), "") // Remove trailing digits
+            .replace(Regex("(?i)\\s+\\d+th$"), "") // e.g. 2nd, 3rd
+            .replace(Regex("(?i)\\s+\\d+nd$"), "")
+            .replace(Regex("(?i)\\s+\\d+rd$"), "")
+            .replace(Regex("(?i)\\s+\\d+st$"), "")
+            .trim()
     }
 }

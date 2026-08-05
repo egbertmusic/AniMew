@@ -85,4 +85,9 @@ class MediaRepository @Inject constructor(
             )
         ).fetchPolicy(FetchPolicy.CacheFirst)
         .execute()
+
+    suspend fun getMediaDetails(id: Int) =
+        apolloClient.query(GetMediaDetailsQuery(id = Optional.present(id)))
+            .fetchPolicy(FetchPolicy.CacheFirst)
+            .execute()
 }

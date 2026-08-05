@@ -46,9 +46,13 @@ class SettingsRepository @Inject constructor(
     private val MANUAL_AVAILABLE_IDS_KEY = stringSetPreferencesKey("manual_available_ids")
     private val ENABLE_DISCOVER_FEED_KEY = booleanPreferencesKey("enable_discover_feed")
     private val ENABLE_PROFILE_TAB_KEY = booleanPreferencesKey("enable_profile_tab")
+    private val GROUP_SEASONS_KEY = booleanPreferencesKey("group_seasons")
+    private val SHOW_MORE_CONTENT_KEY = booleanPreferencesKey("show_more_content")
 
     val enableDiscoverFeed: Flow<Boolean> = dataStore.data.map { it[ENABLE_DISCOVER_FEED_KEY] ?: true }
     val enableProfileTab: Flow<Boolean> = dataStore.data.map { it[ENABLE_PROFILE_TAB_KEY] ?: true }
+    val groupSeasons: Flow<Boolean> = dataStore.data.map { it[GROUP_SEASONS_KEY] ?: true }
+    val showMoreContent: Flow<Boolean> = dataStore.data.map { it[SHOW_MORE_CONTENT_KEY] ?: true }
 
     val seerrUrl: Flow<String> = dataStore.data.map { prefs ->
         prefs[SEERR_URL_KEY] ?: ""
@@ -249,6 +253,14 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setEnableProfileTab(enable: Boolean) {
         dataStore.edit { it[ENABLE_PROFILE_TAB_KEY] = enable }
+    }
+
+    suspend fun setGroupSeasons(group: Boolean) {
+        dataStore.edit { it[GROUP_SEASONS_KEY] = group }
+    }
+
+    suspend fun setShowMoreContent(show: Boolean) {
+        dataStore.edit { it[SHOW_MORE_CONTENT_KEY] = show }
     }
 
     suspend fun toggleManualAvailable(mediaId: Int) {

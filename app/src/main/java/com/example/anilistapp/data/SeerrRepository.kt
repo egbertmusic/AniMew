@@ -227,8 +227,42 @@ class SeerrRepository @Inject constructor(
         return null
     }
 
-    suspend fun getShowDetails(tmdbId: Int, type: String): List<Int> = withContext(Dispatchers.IO) {
-        val auth = getAuth() ?: return@withContext emptyList()
+    suspend fun lookupByExternalId(source: String, id: Int): SeerrSearchResult? = withContext(Dispatchers.IO) {
+        val auth = getAuth() ?: return@withContext null
+        val (url, apiKey) = auth
+        try {
+            val request = Request.Builder()
+                .url("$url/api/v1/search/lookup?source=$source&id=$id")
+                .addHeader("X-Api-Key", apiKey)
+                .build()
+            val response = client.newCall(request).execute()
+            val body = response.body?.string() ?: return@withContext null
+            val obj = JSONObject(body)
+            
+            val type = obj.optString("mediaType", "tv")
+            val tmdbId = obj.getInt("id")
+            
+            val mediaInfo = if (obj.has("mediaInfo") && !obj.isNull("mediaInfo")) obj.getJSONObject("mediaInfo") else null
+            var status = mediaInfo?.optInt("status", 1)
+            
+            if (status == null || status == 1) {
+                status = cachedStatusMap?.get("${type}_$tmdbId") ?: 1
+            }
+
+            SeerrSearchResult(
+                id = tmdbId,
+                title = obj.optString("name", obj.optString("title")),
+                type = type,
+                overview = obj.optString("overview"),
+                status = status
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    suspend fun getShowDetails(tmdbId: Int, type: String): Pair<List<SeerrSeasonInfo>, Set<Int>> = withContext(Dispatchers.IO) {
+        val auth = getAuth() ?: return@withContext emptyList<SeerrSeasonInfo>() to emptySet<Int>()
         val (url, apiKey) = auth
         try {
             val endpoint = if (type == "tv") "tv" else "movie"
@@ -237,13 +271,43 @@ class SeerrRepository @Inject constructor(
                 .addHeader("X-Api-Key", apiKey)
                 .build()
             val response = client.newCall(request).execute()
-            val body = response.body?.string() ?: return@withContext emptyList()
+            val body = response.body?.string() ?: return@withContext emptyList<SeerrSeasonInfo>() to emptySet<Int>()
+            
             if (type == "tv") {
-                val seasons = JSONObject(body).getJSONArray("seasons")
-                List(seasons.length()) { i -> seasons.getJSONObject(i).getInt("seasonNumber") }
-            } else listOf(0)
+                val obj = JSONObject(body)
+                val seasonsArray = obj.getJSONArray("seasons")
+                val allSeasons = mutableListOf<SeerrSeasonInfo>()
+                
+                for (i in 0 until seasonsArray.length()) {
+                    val s = seasonsArray.getJSONObject(i)
+                    allSeasons.add(SeerrSeasonInfo(
+                        seasonNumber = s.getInt("seasonNumber"),
+                        posterPath = s.optString("posterPath").takeIf { it.isNotEmpty() && it != "null" }
+                    ))
+                }
+
+                val availableSeasons = mutableSetOf<Int>()
+                val mediaInfo = obj.optJSONObject("mediaInfo")
+                if (mediaInfo != null) {
+                    val status = mediaInfo.optInt("status", 1)
+                    if (status == 5) {
+                        availableSeasons.addAll(allSeasons.map { it.seasonNumber })
+                    } else {
+                        val miSeasons = mediaInfo.optJSONArray("seasons")
+                        if (miSeasons != null) {
+                            for (i in 0 until miSeasons.length()) {
+                                val mis = miSeasons.getJSONObject(i)
+                                if (mis.optInt("status", 1) == 5) {
+                                    availableSeasons.add(mis.getInt("seasonNumber"))
+                                }
+                            }
+                        }
+                    }
+                }
+                allSeasons to availableSeasons
+            } else listOf(SeerrSeasonInfo(0, null)) to emptySet<Int>()
         } catch (e: Exception) {
-            emptyList()
+            emptyList<SeerrSeasonInfo>() to emptySet<Int>()
         }
     }
 
@@ -386,6 +450,11 @@ class SeerrRepository @Inject constructor(
         }
     }
 }
+
+data class SeerrSeasonInfo(
+    val seasonNumber: Int,
+    val posterPath: String?
+)
 
 data class SeerrSearchResult(
     val id: Int,

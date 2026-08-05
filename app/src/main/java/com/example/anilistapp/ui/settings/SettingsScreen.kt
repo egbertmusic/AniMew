@@ -217,6 +217,44 @@ fun SettingsScreen(
                             onCheckedChange = { viewModel.onEnableProfileTabChanged(it) }
                         )
                     }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Group Anime Seasons", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "Group separate AniList season entries in search results.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = state.groupSeasons,
+                            onCheckedChange = { viewModel.onGroupSeasonsChanged(it) }
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Show 'More Content'", style = MaterialTheme.typography.bodyLarge)
+                            Text(
+                                "Show related anime, movies, and manga in the detail screen.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = state.showMoreContent,
+                            onCheckedChange = { viewModel.onShowMoreContentChanged(it) }
+                        )
+                    }
                 }
             }
 
