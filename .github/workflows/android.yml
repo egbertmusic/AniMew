@@ -53,17 +53,28 @@ jobs:
         name: AniMew ${{ github.ref_name }}
         files: app/build/outputs/apk/debug/AniMew-${{ github.ref_name }}.apk
         body: |
-          ## Welcome to AniMew! 🐾
-          The first official release of your personalized AniList tracker.
+          ## AniMew ${{ github.ref_name }} 🐾
           
-          ### What's New
-          - ✨ **Modern UI**: Material 3 with Amoled and "Liquid Glass" themes.
-          - 📚 **Library Sync**: Keep track of your anime and manga via AniList.
-          - 🍿 **Media Servers**: Integrated support for Seerr, Plex, and Jellyfin.
-          - 📱 **Home Screen Widgets**: Stay updated with airing schedules and stats.
+          This major update introduces several highly requested features and a fresh coat of polish across the entire application.
           
-          ### Installation
-          Download the **AniMew-${{ github.ref_name }}.apk** attached below.
+          ### 🚀 Major New Features
+          - 🎬 **Shorts Discovery Feed**: Explore anime and manga through a brand-new vertical scrolling video feed.
+          - 🎭 **Dynamic App Icons**: Customize your home screen with multiple new app icon options.
+          - 🔊 **Tactile UI Sounds**: Experience a more responsive interface with integrated sound effects.
+          - 🎥 **TMDB Integration**: Enhanced metadata powered by The Movie Database for richer media details.
+          
+          ### ✨ Enhancements & Refinements
+          - **Major UI Polish**: Wide-ranging visual improvements to Library, Search, and Detail screens.
+          - **Advanced Seerr Logic**: Improved matching and status tracking for your media servers.
+          - **Search Filtering**: Refined search experience with better tag visibility and grouping.
+          
+          ### 🐛 Bug Fixes
+          - Resolved issues with OAuth redirect schemes.
+          - Fixed settings persistence and UI synchronization bugs.
+          - Improved stability of background widget updates.
+          
+          ### 📲 Installation
+          Download the **AniMew-${{ github.ref_name }}.apk** attached below and install it on your Android device.
         draft: false
         prerelease: false
       env:
