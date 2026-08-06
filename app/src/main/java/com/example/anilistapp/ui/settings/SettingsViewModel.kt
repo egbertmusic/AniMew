@@ -30,6 +30,7 @@ data class SettingsState(
     val titleLanguage: String = "ROMAJI",
     val showMultipleTitles: Boolean = false,
     val appLanguages: Set<String> = setOf("ENGLISH"),
+    val primaryAppLanguage: String = "ENGLISH",
     val randomizeUiLanguage: Boolean = false,
     val enableSeerr: Boolean = false,
     val showSeerrCloudInLibrary: Boolean = true,
@@ -39,9 +40,19 @@ data class SettingsState(
     val themeMode: AppTheme = AppTheme.DARK,
     val widgetThemeMode: AppTheme = AppTheme.DARK,
     val enableDiscoverFeed: Boolean = true,
+    val enableShortsFeed: Boolean = true,
     val enableProfileTab: Boolean = true,
+    val enableMewingChad: Boolean = false,
     val groupSeasons: Boolean = true,
     val showMoreContent: Boolean = true,
+    val showAppTitle: Boolean = true,
+    val shortsNavigationStyle: String = "BOTTOM",
+    val shortsFeedSource: String = "TRENDING",
+    val shortsFeedType: String = "ANIME",
+    val enableSfx: Boolean = true,
+    val enableBgm: Boolean = false,
+    val preferredTrailerLanguage: String = "JAPANESE",
+    val enableLocalizedContent: Boolean = true,
     val jellyfinLibraryId: String = "",
     val plexLibraryId: String = "",
     val jellyfinLibraries: List<Pair<String, String>> = emptyList(),
@@ -63,6 +74,7 @@ class SettingsViewModel @Inject constructor(
     private val jellyfinRepository: com.example.anilistapp.data.JellyfinRepository,
     private val plexRepository: com.example.anilistapp.data.PlexRepository,
     private val complementRepository: com.example.anilistapp.data.ComplementRepository,
+    private val dynamicIconManager: com.example.anilistapp.DynamicIconManager,
     val localizationManager: LocalizationManager
 ) : ViewModel() {
 
@@ -82,6 +94,7 @@ class SettingsViewModel @Inject constructor(
             val radarrRoot = repository.seerrRadarrRootFolder.first()
             val sonarrRoot = repository.seerrSonarrRootFolder.first()
             val appLangs = repository.appLanguages.first()
+            val primaryLang = repository.primaryAppLanguage.first()
             val randomize = repository.randomizeUiLanguage.first()
             val seerrEnabled = repository.enableSeerr.first()
             val mediaFallback = repository.enableMediaServerFallback.first()
@@ -98,9 +111,19 @@ class SettingsViewModel @Inject constructor(
             val jLib = repository.jellyfinLibraryId.first()
             val pLib = repository.plexLibraryId.first()
             val discoverFeed = repository.enableDiscoverFeed.first()
+            val shortsFeed = repository.enableShortsFeed.first()
             val profileTab = repository.enableProfileTab.first()
+            val mewingChad = repository.enableMewingChad.first()
             val group = repository.groupSeasons.first()
             val moreContent = repository.showMoreContent.first()
+            val appTitle = repository.showAppTitle.first()
+            val shortsNavStyle = repository.shortsNavigationStyle.first()
+            val shortsSource = repository.shortsFeedSource.first()
+            val shortsType = repository.shortsFeedType.first()
+            val sfx = repository.enableSfx.first()
+            val bgm = repository.enableBgm.first()
+            val trailerLang = repository.preferredTrailerLanguage.first()
+            val localizedContent = repository.enableLocalizedContent.first()
 
             val customTheme = customThemeJson?.let {
                 try { kotlinx.serialization.json.Json.decodeFromString<com.example.anilistapp.ui.theme.CustomTheme>(it) } catch (e: Exception) { null }
@@ -118,6 +141,7 @@ class SettingsViewModel @Inject constructor(
                 titleLanguage = language,
                 showMultipleTitles = multipleTitles,
                 appLanguages = appLangs,
+                primaryAppLanguage = primaryLang,
                 randomizeUiLanguage = randomize,
                 enableSeerr = seerrEnabled,
                 enableMediaServerFallback = mediaFallback,
@@ -134,9 +158,19 @@ class SettingsViewModel @Inject constructor(
                 customTheme = customTheme,
                 widgetThemeMode = AppTheme.valueOf(widgetTheme),
                 enableDiscoverFeed = discoverFeed,
+                enableShortsFeed = shortsFeed,
                 enableProfileTab = profileTab,
+                enableMewingChad = mewingChad,
                 groupSeasons = group,
-                showMoreContent = moreContent
+                showMoreContent = moreContent,
+                showAppTitle = appTitle,
+                shortsNavigationStyle = shortsNavStyle,
+                shortsFeedSource = shortsSource,
+                shortsFeedType = shortsType,
+                enableSfx = sfx,
+                enableBgm = bgm,
+                preferredTrailerLanguage = trailerLang,
+                enableLocalizedContent = localizedContent
             )
             
             if (jellyfinUrl.isNotEmpty() && jellyfinApiKey.isNotEmpty()) {
@@ -229,6 +263,14 @@ class SettingsViewModel @Inject constructor(
 
     fun onAppLanguagesChanged(languages: Set<String>) {
         _state.value = _state.value.copy(appLanguages = languages, isSaved = false)
+        // Ensure primary language is still in the set
+        if (!languages.contains(_state.value.primaryAppLanguage)) {
+            _state.value = _state.value.copy(primaryAppLanguage = languages.firstOrNull() ?: "ENGLISH")
+        }
+    }
+
+    fun onPrimaryAppLanguageChanged(language: String) {
+        _state.value = _state.value.copy(primaryAppLanguage = language, isSaved = false)
     }
 
     fun onRandomizeUiChanged(randomize: Boolean) {
@@ -259,8 +301,16 @@ class SettingsViewModel @Inject constructor(
         _state.value = _state.value.copy(enableDiscoverFeed = enable, isSaved = false)
     }
 
+    fun onEnableShortsFeedChanged(enable: Boolean) {
+        _state.value = _state.value.copy(enableShortsFeed = enable, isSaved = false)
+    }
+
     fun onEnableProfileTabChanged(enable: Boolean) {
         _state.value = _state.value.copy(enableProfileTab = enable, isSaved = false)
+    }
+
+    fun onEnableMewingChadChanged(enable: Boolean) {
+        _state.value = _state.value.copy(enableMewingChad = enable, isSaved = false)
     }
 
     fun onGroupSeasonsChanged(group: Boolean) {
@@ -269,6 +319,38 @@ class SettingsViewModel @Inject constructor(
 
     fun onShowMoreContentChanged(show: Boolean) {
         _state.value = _state.value.copy(showMoreContent = show, isSaved = false)
+    }
+
+    fun onShowAppTitleChanged(show: Boolean) {
+        _state.value = _state.value.copy(showAppTitle = show, isSaved = false)
+    }
+
+    fun onShortsNavigationStyleChanged(style: String) {
+        _state.value = _state.value.copy(shortsNavigationStyle = style, isSaved = false)
+    }
+
+    fun onShortsFeedSourceChanged(source: String) {
+        _state.value = _state.value.copy(shortsFeedSource = source, isSaved = false)
+    }
+
+    fun onShortsFeedTypeChanged(type: String) {
+        _state.value = _state.value.copy(shortsFeedType = type, isSaved = false)
+    }
+
+    fun onEnableSfxChanged(enable: Boolean) {
+        _state.value = _state.value.copy(enableSfx = enable, isSaved = false)
+    }
+
+    fun onEnableBgmChanged(enable: Boolean) {
+        _state.value = _state.value.copy(enableBgm = enable, isSaved = false)
+    }
+
+    fun onPreferredTrailerLanguageChanged(language: String) {
+        _state.value = _state.value.copy(preferredTrailerLanguage = language, isSaved = false)
+    }
+
+    fun onEnableLocalizedContentChanged(enable: Boolean) {
+        _state.value = _state.value.copy(enableLocalizedContent = enable, isSaved = false)
     }
 
     fun onThemeChanged(theme: AppTheme) {
@@ -394,6 +476,7 @@ class SettingsViewModel @Inject constructor(
             repository.setTitleLanguage(_state.value.titleLanguage)
             repository.setShowMultipleTitles(_state.value.showMultipleTitles)
             repository.setAppLanguages(_state.value.appLanguages)
+            repository.setPrimaryAppLanguage(_state.value.primaryAppLanguage)
             repository.setRandomizeUiLanguage(_state.value.randomizeUiLanguage)
             repository.setEnableSeerr(_state.value.enableSeerr)
             repository.setShowSeerrCloudInLibrary(_state.value.showSeerrCloudInLibrary)
@@ -403,9 +486,24 @@ class SettingsViewModel @Inject constructor(
             repository.setThemeMode(_state.value.themeMode.name)
             repository.setWidgetThemeMode(_state.value.widgetThemeMode.name)
             repository.setEnableDiscoverFeed(_state.value.enableDiscoverFeed)
+            repository.setEnableShortsFeed(_state.value.enableShortsFeed)
             repository.setEnableProfileTab(_state.value.enableProfileTab)
+            
+            if (repository.enableMewingChad.first() != _state.value.enableMewingChad) {
+                dynamicIconManager.setChadIconEnabled(_state.value.enableMewingChad)
+            }
+            
+            repository.setEnableMewingChad(_state.value.enableMewingChad)
             repository.setGroupSeasons(_state.value.groupSeasons)
             repository.setShowMoreContent(_state.value.showMoreContent)
+            repository.setShowAppTitle(_state.value.showAppTitle)
+            repository.setShortsNavigationStyle(_state.value.shortsNavigationStyle)
+            repository.setShortsFeedSource(_state.value.shortsFeedSource)
+            repository.setShortsFeedType(_state.value.shortsFeedType)
+            repository.setEnableSfx(_state.value.enableSfx)
+            repository.setEnableBgm(_state.value.enableBgm)
+            repository.setPreferredTrailerLanguage(_state.value.preferredTrailerLanguage)
+            repository.setEnableLocalizedContent(_state.value.enableLocalizedContent)
             
             _state.value = _state.value.copy(isSaved = true)
         }

@@ -5,6 +5,7 @@ import com.example.anilistapp.*
 import com.example.anilistapp.type.MediaListStatus
 import com.example.anilistapp.type.MediaSeason
 import com.example.anilistapp.type.MediaType
+import com.example.anilistapp.type.MediaSort
 import com.apollographql.apollo.api.Optional
 import com.apollographql.apollo.cache.normalized.FetchPolicy
 import com.apollographql.apollo.cache.normalized.fetchPolicy
@@ -90,4 +91,21 @@ class MediaRepository @Inject constructor(
         apolloClient.query(GetMediaDetailsQuery(id = Optional.present(id)))
             .fetchPolicy(FetchPolicy.CacheFirst)
             .execute()
+
+    suspend fun getShortsMedia(
+        page: Int = 1,
+        perPage: Int = 20,
+        type: MediaType? = MediaType.ANIME,
+        sort: List<MediaSort>? = listOf(MediaSort.TRENDING_DESC),
+        genres: List<String>? = null
+    ) =
+        apolloClient.query(
+            GetShortsMediaQuery(
+                page = Optional.present(page),
+                perPage = Optional.present(perPage),
+                type = Optional.presentIfNotNull(type),
+                sort = Optional.presentIfNotNull(sort),
+                genres = Optional.presentIfNotNull(genres)
+            )
+        ).execute()
 }

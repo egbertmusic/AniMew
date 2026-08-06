@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -77,7 +78,13 @@ fun MediaDetailScreen(
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
-                title = { Text(state.title) },
+                title = { 
+                    Text(
+                        text = state.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -190,6 +197,7 @@ fun MediaDetailScreen(
                                 text = "Add to Watchlist",
                                 languages = state.appLanguages,
                                 randomize = state.randomizeUiLanguage,
+                                primaryLanguage = state.primaryAppLanguage,
                                 localizationManager = viewModel.localizationManager
                             )
                         }
@@ -203,10 +211,11 @@ fun MediaDetailScreen(
                         color = MaterialTheme.colorScheme.primary,
                         languages = state.appLanguages,
                         randomize = state.randomizeUiLanguage,
+                        primaryLanguage = state.primaryAppLanguage,
                         localizationManager = viewModel.localizationManager
                     )
                     Text(
-                        text = state.synopsis.takeIf { it.isNotBlank() }?.replace(Regex("<[^>]*>"), "") ?: "No synopsis available.",
+                        text = state.synopsis.takeIf { it.isNotBlank() }?.replace(Regex("<[^>]*>"), "") ?: viewModel.localizationManager.translate("No synopsis available.", state.primaryAppLanguage),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 4.dp)
                     )
@@ -344,6 +353,7 @@ fun MediaDetailScreen(
                             color = MaterialTheme.colorScheme.primary,
                             languages = state.appLanguages,
                             randomize = state.randomizeUiLanguage,
+                            primaryLanguage = state.primaryAppLanguage,
                             localizationManager = viewModel.localizationManager
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -445,27 +455,53 @@ fun MediaDetailScreen(
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 }
+                            } else {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(Icons.Default.Movie, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(48.dp))
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        LocalizableText(
+                                            text = "No trailer found automatically.", 
+                                            color = Color.Gray, 
+                                            style = MaterialTheme.typography.labelSmall,
+                                            languages = state.appLanguages,
+                                            randomize = state.randomizeUiLanguage,
+                                            primaryLanguage = state.primaryAppLanguage,
+                                            localizationManager = viewModel.localizationManager
+                                        )
+                                    }
+                                }
                             }
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        OutlinedButton(
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/watch?v=$cleanId"))
-                                context.startActivity(intent)
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Watch on YouTube", style = MaterialTheme.typography.bodySmall)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    val videoUrl = if (cleanId != null) "https://www.youtube.com/watch?v=$cleanId" else "https://www.youtube.com/results?search_query=${Uri.encode("${state.title} trailer ${state.preferredTrailerLanguage}")}"
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(videoUrl))
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                            ) {
+                                Icon(
+                                    imageVector = if (cleanId != null) Icons.Default.PlayArrow else Icons.Default.Search,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                LocalizableText(
+                                    text = if (cleanId != null) "Watch on YouTube" else "Search Trailer", 
+                                    style = MaterialTheme.typography.bodySmall,
+                                    languages = state.appLanguages,
+                                    randomize = state.randomizeUiLanguage,
+                                    primaryLanguage = state.primaryAppLanguage,
+                                    localizationManager = viewModel.localizationManager
+                                )
+                            }
                         }
                     }
 
@@ -504,6 +540,7 @@ fun MediaDetailScreen(
                                         fontWeight = FontWeight.ExtraBold,
                                         languages = state.appLanguages,
                                         randomize = state.randomizeUiLanguage,
+                                        primaryLanguage = state.primaryAppLanguage,
                                         localizationManager = viewModel.localizationManager
                                     )
                                 }

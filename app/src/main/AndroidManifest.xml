@@ -22,11 +22,6 @@
             android:theme="@style/Theme.AnilistApp"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
             <!-- OAuth Redirect Intent Filter -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -35,6 +30,36 @@
                 <data android:scheme="animew" android:host="auth" />
             </intent-filter>
         </activity>
+
+        <!-- Default Launcher Alias -->
+        <activity-alias
+            android:name=".MainActivityDefault"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Activity Alias for Mewing Chad Icon -->
+        <activity-alias
+            android:name=".MainActivityChad"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@drawable/icon2"
+            android:label="@string/app_name"
+            android:roundIcon="@drawable/icon2"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".widget.WidgetConfigurationActivity"

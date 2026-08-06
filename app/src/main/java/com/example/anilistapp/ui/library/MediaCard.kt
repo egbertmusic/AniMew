@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -34,6 +36,8 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.anilistapp.GetUserListQuery
 import com.example.anilistapp.ui.theme.AniListTheme
+import com.example.anilistapp.ui.components.LocalizableText
+import com.example.anilistapp.data.LocalizedMediaDetails
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.BorderStroke
 
@@ -50,8 +54,14 @@ fun MediaCard(
     onMediaClick: (String, Int, String) -> Unit,
     onLongClick: () -> Unit = {},
     isManualAvailable: Boolean = false,
+    appLanguages: Set<String> = setOf("ENGLISH"),
+    primaryLanguage: String = "ENGLISH",
+    randomizeUiLanguage: Boolean = false,
+    localizationManager: com.example.anilistapp.ui.components.LocalizationManager? = null,
+    localizedDetails: LocalizedMediaDetails? = null,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
     val media = entry.media ?: return
     val seerrStatusOverride = seerrStatus ?: if (com.example.anilistapp.AnilistApplication.instance.applicationContext.let { false }) 6 else null 
     // Wait, I can't check manualAvailableIds easily here without passing it.
@@ -62,11 +72,17 @@ fun MediaCard(
     val glass = AniListTheme.glass
     val type = media.type?.name ?: "ANIME"
 
-    val title = when (titleLanguage) {
-        "ENGLISH" -> media.title?.english ?: media.title?.userPreferred
-        "NATIVE" -> media.title?.native ?: media.title?.userPreferred
-        else -> media.title?.romaji ?: media.title?.userPreferred
+    val title = localizedDetails?.title?.takeIf { it.isNotBlank() } ?: if (primaryLanguage != "ENGLISH") {
+        media.title?.userPreferred
+    } else {
+        when (titleLanguage) {
+            "ENGLISH" -> media.title?.english ?: media.title?.userPreferred
+            "NATIVE" -> media.title?.native ?: media.title?.userPreferred
+            else -> media.title?.romaji ?: media.title?.userPreferred
+        }
     } ?: "Unknown"
+
+    val posterModel = localizedDetails?.posterPath ?: media.coverImage?.extraLarge ?: media.coverImage?.large
 
     Card(
         modifier = modifier
@@ -91,13 +107,19 @@ fun MediaCard(
                         .fillMaxWidth()
                         .height(200.dp)
                         .combinedClickable(
-                            onClick = { onMediaClick(title, media.id, type) },
-                            onLongClick = onLongClick
+                            onClick = { 
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onMediaClick(title, media.id, type) 
+                            },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onLongClick()
+                            }
                         )
                 ) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            .data(media.coverImage?.extraLarge)
+                            .data(posterModel)
                             .crossfade(true)
                             .build(),
                         contentDescription = title,
@@ -162,8 +184,14 @@ fun MediaCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .combinedClickable(
-                                onClick = { onMediaClick(title, media.id, type) },
-                                onLongClick = onLongClick
+                                onClick = { 
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onMediaClick(title, media.id, type) 
+                                },
+                                onLongClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onLongClick()
+                                }
                             )
                     ) {
                         Text(
@@ -175,11 +203,26 @@ fun MediaCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         
-                        Text(
-                            text = if (totalEpisodes > 0) "$totalEpisodes Episodes" else "Ongoing",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
+                        if (localizationManager != null) {
+                            val localizedStatus = if (totalEpisodes > 0) {
+                                val episodesText = localizationManager.translate("Episodes", primaryLanguage)
+                                "$totalEpisodes $episodesText"
+                            } else {
+                                localizationManager.translate("Ongoing", primaryLanguage)
+                            }
+                            
+                            Text(
+                                text = localizedStatus,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        } else {
+                            Text(
+                                text = if (totalEpisodes > 0) "$totalEpisodes Episodes" else "Ongoing",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.weight(1f))
@@ -187,47 +230,72 @@ fun MediaCard(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 12.dp),
+                            .padding(bottom = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
+                        Column(modifier = Modifier.weight(1f)) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = "$progress / ${if (totalEpisodes > 0) totalEpisodes else "?"}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = FontWeight.Bold
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
+                                if (totalEpisodes > 0) {
+                                    Text(
+                                        text = "${(progress * 100 / totalEpisodes)}%",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                                    )
+                                }
                             }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = if (totalEpisodes > 0) progress.toFloat() / totalEpisodes.toFloat() else 0f,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(CircleShape),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                            )
                         }
                         
+                        Spacer(modifier = Modifier.width(16.dp))
+
                         if (!isDisableUpdateOn) {
                             Row(
                                 modifier = Modifier
-                                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f), CircleShape)
-                                    .padding(horizontal = 4.dp),
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape)
+                                    .padding(horizontal = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(
-                                    onClick = { if (progress > 0) onDecrease(media.id, progress - 1) },
-                                    modifier = Modifier.size(40.dp) // Increased touch target
+                                    onClick = { 
+                                        if (progress > 0) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onDecrease(media.id, progress - 1) 
+                                        }
+                                    },
+                                    modifier = Modifier.size(32.dp)
                                 ) {
-                                    Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = MaterialTheme.colorScheme.onSurface)
+                                    Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 }
-                                VerticalDivider(modifier = Modifier.height(16.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
                                 IconButton(
-                                    onClick = { if (totalEpisodes == 0 || progress < totalEpisodes) onIncrease(media.id, progress + 1) },
-                                    modifier = Modifier.size(40.dp) // Increased touch target
+                                    onClick = { 
+                                        if (totalEpisodes == 0 || progress < totalEpisodes) {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onIncrease(media.id, progress + 1) 
+                                        }
+                                    },
+                                    modifier = Modifier.size(32.dp)
                                 ) {
-                                    Icon(Icons.Default.Add, contentDescription = "Increase", tint = MaterialTheme.colorScheme.onSurface)
+                                    Icon(Icons.Default.Add, contentDescription = "Increase", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 }
                             }
                         }

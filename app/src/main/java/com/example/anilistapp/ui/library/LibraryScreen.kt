@@ -26,7 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.anilistapp.ui.components.LocalizableText
 import com.example.anilistapp.type.MediaListStatus
@@ -43,6 +46,7 @@ fun LibraryScreen(
     viewModel: LibraryViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val haptic = LocalHapticFeedback.current
     val snackbarHostState = remember { SnackbarHostState() }
     val pullToRefreshState = rememberPullToRefreshState()
     
@@ -102,27 +106,48 @@ fun LibraryScreen(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             containerColor = Color.Transparent,
             topBar = {
-                TopAppBar(
+                CenterAlignedTopAppBar(
                     title = { 
-                        LocalizableText(
-                            text = "AniMew",
-                            languages = state.appLanguages,
-                            randomize = state.randomizeUiLanguage,
-                            localizationManager = viewModel.localizationManager
+                        if (state.showAppTitle) {
+                            Text(
+                                text = "AniMew",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = (-1).sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            viewModel.soundManager.playClick()
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSearchClick()
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Search, 
+                            contentDescription = viewModel.localizationManager.translate("Search", state.primaryAppLanguage), 
+                            tint = MaterialTheme.colorScheme.onBackground
                         )
-                    },
-                    actions = {
-                        IconButton(onClick = onSearchClick) {
-                            Icon(Icons.Default.Search, contentDescription = "Search")
+                    }
+                    IconButton(
+                        onClick = {
+                            viewModel.soundManager.playClick()
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSettingsClick()
                         }
-                        IconButton(onClick = onSettingsClick) {
-                            Icon(Icons.Default.Settings, contentDescription = "Settings")
-                        }
-                    },
+                    ) {
+                        Icon(
+                            Icons.Default.Settings, 
+                            contentDescription = viewModel.localizationManager.translate("Settings", state.primaryAppLanguage), 
+                            tint = MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = MaterialTheme.colorScheme.onBackground,
-                        actionIconContentColor = MaterialTheme.colorScheme.onBackground
+                        containerColor = Color.Transparent
                     )
                 )
             }
@@ -150,7 +175,13 @@ fun LibraryScreen(
                                 contentColor = if (selectedType == MediaType.ANIME) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                             )
                         ) {
-                            Text("Anime")
+                            LocalizableText(
+                                text = "Anime",
+                                languages = state.appLanguages,
+                                randomize = state.randomizeUiLanguage,
+                                primaryLanguage = state.primaryAppLanguage,
+                                localizationManager = viewModel.localizationManager
+                            )
                         }
                         Button(
                             onClick = { viewModel.onTypeSelected(MediaType.MANGA) },
@@ -161,7 +192,13 @@ fun LibraryScreen(
                                 contentColor = if (selectedType == MediaType.MANGA) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                             )
                         ) {
-                            Text("Manga")
+                            LocalizableText(
+                                text = "Manga",
+                                languages = state.appLanguages,
+                                randomize = state.randomizeUiLanguage,
+                                primaryLanguage = state.primaryAppLanguage,
+                                localizationManager = viewModel.localizationManager
+                            )
                         }
                     }
                 }
@@ -176,14 +213,27 @@ fun LibraryScreen(
                 ) {
                     val currentStatus = state.selectedStatus
                     MediaListStatus.entries.forEach { status ->
+                        val selected = currentStatus == status
                         FilterChip(
-                            selected = currentStatus == status,
+                            selected = selected,
                             onClick = { viewModel.onStatusSelected(status) },
-                            label = { Text(status.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                            label = { 
+                                LocalizableText(
+                                    text = status.name,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                    languages = state.appLanguages,
+                                    randomize = state.randomizeUiLanguage,
+                                    primaryLanguage = state.primaryAppLanguage,
+                                    localizationManager = viewModel.localizationManager
+                                ) 
+                            },
                             modifier = Modifier.padding(horizontal = 4.dp),
+                            shape = RoundedCornerShape(12.dp),
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant
                             ),
                             border = null
                         )
@@ -241,6 +291,11 @@ fun LibraryScreen(
                                             titleLanguage = titleLanguage,
                                             showMultipleTitles = showMultipleTitles,
                                             isManualAvailable = state.manualAvailableIds.contains(entry.media?.id),
+                                            appLanguages = state.appLanguages,
+                                            primaryLanguage = state.primaryAppLanguage,
+                                            randomizeUiLanguage = state.randomizeUiLanguage,
+                                            localizationManager = viewModel.localizationManager,
+                                            localizedDetails = state.localizedDetails[entry.media?.id],
                                             onIncrease = { id, prog -> viewModel.updateProgress(id, prog) },
                                             onDecrease = { id, prog -> viewModel.updateProgress(id, prog) },
                                             onMediaClick = onMediaClick,
@@ -297,9 +352,13 @@ fun LibraryScreen(
                     ) {
                         ListItem(
                             headlineContent = { 
-                                Text(
-                                    if (isManualAvailable) "Remove Manual Availability" else "Mark as Available",
-                                    fontWeight = FontWeight.SemiBold
+                                LocalizableText(
+                                    text = if (isManualAvailable) "Remove Manual Availability" else "Mark as Available",
+                                    fontWeight = FontWeight.SemiBold,
+                                    languages = state.appLanguages,
+                                    randomize = state.randomizeUiLanguage,
+                                    primaryLanguage = state.primaryAppLanguage,
+                                    localizationManager = viewModel.localizationManager
                                 ) 
                             },
                             leadingContent = { 
@@ -323,7 +382,16 @@ fun LibraryScreen(
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                     ) {
                         ListItem(
-                            headlineContent = { Text("Reposition (Move)", fontWeight = FontWeight.SemiBold) },
+                            headlineContent = { 
+                                LocalizableText(
+                                    text = "Reposition (Move)", 
+                                    fontWeight = FontWeight.SemiBold,
+                                    languages = state.appLanguages,
+                                    randomize = state.randomizeUiLanguage,
+                                    primaryLanguage = state.primaryAppLanguage,
+                                    localizationManager = viewModel.localizationManager
+                                ) 
+                            },
                             leadingContent = { Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
@@ -333,7 +401,9 @@ fun LibraryScreen(
 
                     Surface(
                         onClick = { 
-                            viewModel.removeFromLibrary(media.id)
+                            viewModel.soundManager.playError()
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.removeFromLibrary(entry.id)
                             showActionMenu = false 
                         },
                         shape = RoundedCornerShape(16.dp),
@@ -341,7 +411,17 @@ fun LibraryScreen(
                         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
                     ) {
                         ListItem(
-                            headlineContent = { Text("Remove from Library", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
+                            headlineContent = { 
+                                LocalizableText(
+                                    text = "Remove from Library", 
+                                    color = MaterialTheme.colorScheme.error, 
+                                    fontWeight = FontWeight.Bold,
+                                    languages = state.appLanguages,
+                                    randomize = state.randomizeUiLanguage,
+                                    primaryLanguage = state.primaryAppLanguage,
+                                    localizationManager = viewModel.localizationManager
+                                ) 
+                            },
                             leadingContent = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
@@ -360,8 +440,18 @@ fun LibraryScreen(
                     Column {
                         MediaListStatus.entries.forEach { status ->
                             ListItem(
-                                headlineContent = { Text(status.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                                headlineContent = { 
+                                    LocalizableText(
+                                        text = status.name,
+                                        languages = state.appLanguages,
+                                        randomize = state.randomizeUiLanguage,
+                                        primaryLanguage = state.primaryAppLanguage,
+                                        localizationManager = viewModel.localizationManager
+                                    )
+                                },
                                 modifier = Modifier.clickable {
+                                    viewModel.soundManager.playClick()
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     viewModel.updateMediaStatus(media.id, status)
                                     showRepositionMenu = false
                                 }

@@ -28,11 +28,12 @@ class ComplementManagementViewModel @Inject constructor(
         settingsRepository.installedComplementsUrls,
         complementRepository.installedComplements
     ) { urls, list ->
-        // This mapping assumes order is preserved or hashes match
-        list.mapNotNull { comp ->
-            val url = urls.find { it.hashCode().toString() == comp.id.hashCode().toString() } // Simple heuristic
+        list.map { comp ->
+            // Try to find the exact URL that matches this complement in SettingsRepository
+            val url = urls.find { it.hashCode().toString() == comp.id.hashCode().toString() }
+                ?: urls.find { it == comp.id } // For local imports where ID is the URL
                 ?: urls.firstOrNull { it.contains(comp.id) }
-                ?: urls.toList().getOrNull(list.indexOf(comp)) ?: ""
+                ?: ""
             ComplementInfo(url, comp)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

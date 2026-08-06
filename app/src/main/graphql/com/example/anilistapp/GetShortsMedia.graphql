@@ -1,0 +1,39 @@
+query GetShortsMedia($page: Int, $perPage: Int, $type: MediaType, $sort: [MediaSort], $genres: [String]) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      total
+      perPage
+      currentPage
+      lastPage
+      hasNextPage
+    }
+    media(sort: $sort, type: $type, genre_in: $genres) {
+      id
+      title {
+        userPreferred
+        romaji
+        english
+        native
+      }
+      type
+      format
+      status
+      episodes
+      description
+      genres
+      coverImage {
+        extraLarge
+        large
+      }
+      trailer {
+        id
+        site
+        thumbnail
+      }
+      averageScore
+      mediaListEntry {
+        status
+      }
+    }
+  }
+}

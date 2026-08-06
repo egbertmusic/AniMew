@@ -11,7 +11,11 @@ import com.example.anilistapp.data.PlexRepository
 import com.example.anilistapp.GetUserListQuery
 import com.example.anilistapp.type.MediaListStatus
 import com.example.anilistapp.type.MediaType
+import com.example.anilistapp.ui.components.LocalizationManager
+import com.example.anilistapp.ui.components.SoundManager
 import com.example.anilistapp.ui.theme.AppTheme
+import com.example.anilistapp.data.TmdbRepository
+import com.example.anilistapp.data.LocalizedMediaDetails
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,9 +43,12 @@ data class LibraryState(
     val titleLanguage: String = "ROMAJI",
     val showMultipleTitles: Boolean = false,
     val appLanguages: Set<String> = setOf("ENGLISH"),
+    val primaryAppLanguage: String = "ENGLISH",
     val randomizeUiLanguage: Boolean = false,
     val themeMode: AppTheme = AppTheme.DARK,
-    val manualAvailableIds: Set<Int> = emptySet()
+    val showAppTitle: Boolean = true,
+    val manualAvailableIds: Set<Int> = emptySet(),
+    val localizedDetails: Map<Int, LocalizedMediaDetails> = emptyMap()
 )
 
 @HiltViewModel
@@ -51,7 +58,9 @@ class LibraryViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val jellyfinRepository: JellyfinRepository,
     private val plexRepository: PlexRepository,
-    val localizationManager: com.example.anilistapp.ui.components.LocalizationManager
+    private val tmdbRepository: TmdbRepository,
+    val localizationManager: LocalizationManager,
+    val soundManager: SoundManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(LibraryState())
@@ -88,7 +97,9 @@ class LibraryViewModel @Inject constructor(
         }
         viewModelScope.launch {
             settingsRepository.appLanguages.collect { langs ->
-                _state.update { it.copy(appLanguages = langs) }
+                val primaryLang = settingsRepository.primaryAppLanguage.first()
+                val randomize = settingsRepository.randomizeUiLanguage.first()
+                _state.update { it.copy(appLanguages = langs, primaryAppLanguage = primaryLang, randomizeUiLanguage = randomize) }
             }
         }
         viewModelScope.launch {
@@ -118,6 +129,11 @@ class LibraryViewModel @Inject constructor(
                 } catch (e: Exception) {
                     _state.update { it.copy(themeMode = AppTheme.DARK) }
                 }
+            }
+        }
+        viewModelScope.launch {
+            settingsRepository.showAppTitle.collect { show ->
+                _state.update { it.copy(showAppTitle = show) }
             }
         }
         viewModelScope.launch {
@@ -184,8 +200,11 @@ class LibraryViewModel @Inject constructor(
             
             _state.update { it.copy(isLoading = false, mediaList = list, error = null) }
             
-            if (type == MediaType.ANIME && _state.value.isSeerrConfigured) {
-                fetchSeerrStatus(list)
+            if (list.isNotEmpty()) {
+                if (type == MediaType.ANIME && _state.value.isSeerrConfigured) {
+                    fetchSeerrStatus(list)
+                }
+                fetchLocalizedContent(list)
             }
         } catch (e: Exception) {
             _state.update { it.copy(isLoading = false, error = e.message) }
@@ -483,6 +502,45 @@ class LibraryViewModel @Inject constructor(
                 refresh()
             } catch (e: Exception) {
                 _state.update { it.copy(error = "Move failed: ${e.message}") }
+            }
+        }
+    }
+
+    private fun fetchLocalizedContent(list: List<GetUserListQuery.MediaList>) {
+        viewModelScope.launch {
+            val primaryLang = settingsRepository.primaryAppLanguage.first()
+            if (primaryLang == "ENGLISH") return@launch
+
+            list.forEach { entry ->
+                val media = entry.media ?: return@forEach
+                launch {
+                    try {
+                        val titleToSearch = media.title?.userPreferred ?: media.title?.romaji ?: media.title?.english ?: ""
+                        if (titleToSearch.isEmpty()) return@launch
+                        
+                        Log.d("LibraryVM", "Searching TMDB for: $titleToSearch in $primaryLang")
+                        
+                        val searchResults = seerrRepository.searchShow(titleToSearch)
+                        val match = searchResults.find { 
+                            it.title.equals(media.title?.userPreferred, ignoreCase = true) ||
+                            it.title.equals(media.title?.romaji, ignoreCase = true) ||
+                            it.title.equals(media.title?.english, ignoreCase = true)
+                        } ?: searchResults.firstOrNull()
+                        
+                        if (match != null) {
+                            Log.d("LibraryVM", "Found TMDB match: ${match.title} (${match.id})")
+                            val localized = tmdbRepository.getLocalizedDetails(match.id, match.type, primaryLang)
+                            if (localized != null) {
+                                Log.d("LibraryVM", "Got localized title: ${localized.title}")
+                                _state.update { it.copy(localizedDetails = it.localizedDetails + (media.id to localized)) }
+                            }
+                        } else {
+                            Log.w("LibraryVM", "No TMDB match found for $titleToSearch")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("LibraryVM", "TMDB fetch failed for ${media.id}", e)
+                    }
+                }
             }
         }
     }

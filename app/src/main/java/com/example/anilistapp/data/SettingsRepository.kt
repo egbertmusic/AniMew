@@ -45,14 +45,38 @@ class SettingsRepository @Inject constructor(
     private val PLEX_LIBRARY_ID_KEY = stringPreferencesKey("plex_library_id")
     private val MANUAL_AVAILABLE_IDS_KEY = stringSetPreferencesKey("manual_available_ids")
     private val ENABLE_DISCOVER_FEED_KEY = booleanPreferencesKey("enable_discover_feed")
+    private val ENABLE_SHORTS_FEED_KEY = booleanPreferencesKey("enable_shorts_feed")
     private val ENABLE_PROFILE_TAB_KEY = booleanPreferencesKey("enable_profile_tab")
     private val GROUP_SEASONS_KEY = booleanPreferencesKey("group_seasons")
     private val SHOW_MORE_CONTENT_KEY = booleanPreferencesKey("show_more_content")
+    private val SHOW_APP_TITLE_KEY = booleanPreferencesKey("show_app_title")
+    private val SHORTS_NAVIGATION_STYLE_KEY = stringPreferencesKey("shorts_navigation_style")
+    private val SHORTS_FEED_SOURCE_KEY = stringPreferencesKey("shorts_feed_source")
+    private val SHORTS_FEED_TYPE_KEY = stringPreferencesKey("shorts_feed_type")
+    private val ENABLE_MEWING_CHAD_KEY = booleanPreferencesKey("enable_mewing_chad")
+    private val MIN_COMMUNITY_SCORE_KEY = intPreferencesKey("min_community_score")
+    private val ENABLE_SFX_KEY = booleanPreferencesKey("enable_sfx")
+    private val ENABLE_BGM_KEY = booleanPreferencesKey("enable_bgm")
+    private val PREFERRED_TRAILER_LANGUAGE_KEY = stringPreferencesKey("preferred_trailer_language")
+    private val ENABLE_LOCALIZED_CONTENT_KEY = booleanPreferencesKey("enable_localized_content")
+    private val PRIMARY_APP_LANGUAGE_KEY = stringPreferencesKey("primary_app_language")
 
     val enableDiscoverFeed: Flow<Boolean> = dataStore.data.map { it[ENABLE_DISCOVER_FEED_KEY] ?: true }
+    val enableShortsFeed: Flow<Boolean> = dataStore.data.map { it[ENABLE_SHORTS_FEED_KEY] ?: true }
     val enableProfileTab: Flow<Boolean> = dataStore.data.map { it[ENABLE_PROFILE_TAB_KEY] ?: true }
     val groupSeasons: Flow<Boolean> = dataStore.data.map { it[GROUP_SEASONS_KEY] ?: true }
     val showMoreContent: Flow<Boolean> = dataStore.data.map { it[SHOW_MORE_CONTENT_KEY] ?: true }
+    val showAppTitle: Flow<Boolean> = dataStore.data.map { it[SHOW_APP_TITLE_KEY] ?: true }
+    val shortsNavigationStyle: Flow<String> = dataStore.data.map { it[SHORTS_NAVIGATION_STYLE_KEY] ?: "BOTTOM" }
+    val shortsFeedSource: Flow<String> = dataStore.data.map { it[SHORTS_FEED_SOURCE_KEY] ?: "TRENDING" }
+    val shortsFeedType: Flow<String> = dataStore.data.map { it[SHORTS_FEED_TYPE_KEY] ?: "ANIME" }
+    val enableMewingChad: Flow<Boolean> = dataStore.data.map { it[ENABLE_MEWING_CHAD_KEY] ?: false }
+    val minCommunityScore: Flow<Int> = dataStore.data.map { it[MIN_COMMUNITY_SCORE_KEY] ?: 70 }
+    val enableSfx: Flow<Boolean> = dataStore.data.map { it[ENABLE_SFX_KEY] ?: true }
+    val enableBgm: Flow<Boolean> = dataStore.data.map { it[ENABLE_BGM_KEY] ?: false }
+    val preferredTrailerLanguage: Flow<String> = dataStore.data.map { it[PREFERRED_TRAILER_LANGUAGE_KEY] ?: "JAPANESE" }
+    val enableLocalizedContent: Flow<Boolean> = dataStore.data.map { it[ENABLE_LOCALIZED_CONTENT_KEY] ?: true }
+    val primaryAppLanguage: Flow<String> = dataStore.data.map { it[PRIMARY_APP_LANGUAGE_KEY] ?: "ENGLISH" }
 
     val seerrUrl: Flow<String> = dataStore.data.map { prefs ->
         prefs[SEERR_URL_KEY] ?: ""
@@ -251,6 +275,10 @@ class SettingsRepository @Inject constructor(
         dataStore.edit { it[ENABLE_DISCOVER_FEED_KEY] = enable }
     }
 
+    suspend fun setEnableShortsFeed(enable: Boolean) {
+        dataStore.edit { it[ENABLE_SHORTS_FEED_KEY] = enable }
+    }
+
     suspend fun setEnableProfileTab(enable: Boolean) {
         dataStore.edit { it[ENABLE_PROFILE_TAB_KEY] = enable }
     }
@@ -261,6 +289,50 @@ class SettingsRepository @Inject constructor(
 
     suspend fun setShowMoreContent(show: Boolean) {
         dataStore.edit { it[SHOW_MORE_CONTENT_KEY] = show }
+    }
+
+    suspend fun setShowAppTitle(show: Boolean) {
+        dataStore.edit { it[SHOW_APP_TITLE_KEY] = show }
+    }
+
+    suspend fun setShortsNavigationStyle(style: String) {
+        dataStore.edit { it[SHORTS_NAVIGATION_STYLE_KEY] = style }
+    }
+
+    suspend fun setShortsFeedSource(source: String) {
+        dataStore.edit { it[SHORTS_FEED_SOURCE_KEY] = source }
+    }
+
+    suspend fun setShortsFeedType(type: String) {
+        dataStore.edit { it[SHORTS_FEED_TYPE_KEY] = type }
+    }
+
+    suspend fun setEnableMewingChad(enable: Boolean) {
+        dataStore.edit { it[ENABLE_MEWING_CHAD_KEY] = enable }
+    }
+
+    suspend fun setMinCommunityScore(score: Int) {
+        dataStore.edit { it[MIN_COMMUNITY_SCORE_KEY] = score }
+    }
+
+    suspend fun setEnableSfx(enable: Boolean) {
+        dataStore.edit { it[ENABLE_SFX_KEY] = enable }
+    }
+
+    suspend fun setEnableBgm(enable: Boolean) {
+        dataStore.edit { it[ENABLE_BGM_KEY] = enable }
+    }
+
+    suspend fun setPreferredTrailerLanguage(language: String) {
+        dataStore.edit { it[PREFERRED_TRAILER_LANGUAGE_KEY] = language }
+    }
+
+    suspend fun setEnableLocalizedContent(enable: Boolean) {
+        dataStore.edit { it[ENABLE_LOCALIZED_CONTENT_KEY] = enable }
+    }
+
+    suspend fun setPrimaryAppLanguage(language: String) {
+        dataStore.edit { it[PRIMARY_APP_LANGUAGE_KEY] = language }
     }
 
     suspend fun toggleManualAvailable(mediaId: Int) {

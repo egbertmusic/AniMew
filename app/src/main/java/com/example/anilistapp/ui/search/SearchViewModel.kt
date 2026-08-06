@@ -10,6 +10,7 @@ import com.example.anilistapp.data.SeerrSearchResult
 import com.example.anilistapp.data.MediaRepository
 import com.example.anilistapp.data.CustomSource
 import com.example.anilistapp.data.ComplementRepository
+import com.example.anilistapp.ui.components.SoundManager
 import com.example.anilistapp.SearchAniListQuery
 import com.example.anilistapp.type.MediaListStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,7 +42,8 @@ class SearchViewModel @Inject constructor(
     private val seerrRepository: SeerrRepository,
     private val mediaRepository: MediaRepository,
     private val complementRepository: ComplementRepository,
-    private val settingsRepository: com.example.anilistapp.data.SettingsRepository
+    private val settingsRepository: com.example.anilistapp.data.SettingsRepository,
+    val soundManager: SoundManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SearchState())

@@ -26,6 +26,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -41,6 +43,7 @@ fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val haptic = LocalHapticFeedback.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.message) {
@@ -69,7 +72,13 @@ fun SearchScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
+                    IconButton(
+                        onClick = { 
+                            viewModel.soundManager.playClick()
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onBackClick() 
+                        }
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
@@ -98,6 +107,7 @@ fun SearchScreen(
                                 results = results,
                                 showTags = state.showSearchTags,
                                 onAddClick = { viewModel.addToWatchlist(it) },
+                                soundManager = viewModel.soundManager,
                                 onMediaClick = onMediaClick
                             )
                         }
@@ -112,7 +122,8 @@ fun SearchScreen(
                                 format = result.format?.name,
                                 showTags = state.showSearchTags,
                                 isInList = result.mediaListEntry != null,
-                                onAddClick = { viewModel.addToWatchlist(result.title?.userPreferred ?: "") }
+                                onAddClick = { viewModel.addToWatchlist(result.title?.userPreferred ?: "") },
+                                soundManager = viewModel.soundManager
                             ) {
                                 onMediaClick(result.title?.userPreferred ?: "", result.id, result.type?.name ?: "ANIME")
                             }
@@ -138,7 +149,8 @@ fun SearchScreen(
                             type = if (result.isAnime) "ANIME" else "MANGA",
                             showTags = state.showSearchTags,
                             isInList = false, // Status unknown for Kitsu-only results
-                            onAddClick = { viewModel.addToWatchlist(result.title) }
+                            onAddClick = { viewModel.addToWatchlist(result.title) },
+                            soundManager = viewModel.soundManager
                         ) {
                             onMediaClick(result.title, -1, if (result.isAnime) "ANIME" else "MANGA")
                         }
@@ -163,7 +175,8 @@ fun SearchScreen(
                             type = result.type.uppercase(),
                             showTags = state.showSearchTags,
                             isInList = false,
-                            onAddClick = { viewModel.addToWatchlist(result.title) }
+                            onAddClick = { viewModel.addToWatchlist(result.title) },
+                            soundManager = viewModel.soundManager
                         ) {
                             onMediaClick(result.title, -1, result.type.uppercase())
                         }
@@ -188,7 +201,8 @@ fun SearchScreen(
                             type = "CUSTOM",
                             showTags = state.showSearchTags,
                             isInList = false,
-                            onAddClick = { viewModel.addToWatchlist(result.title) }
+                            onAddClick = { viewModel.addToWatchlist(result.title) },
+                            soundManager = viewModel.soundManager
                         ) {
                             onMediaClick(result.title, -1, "ANIME")
                         }
@@ -204,6 +218,7 @@ fun GroupedSearchItem(
     results: List<com.example.anilistapp.SearchAniListQuery.Medium>,
     showTags: Boolean = true,
     onAddClick: (String) -> Unit,
+    soundManager: com.example.anilistapp.ui.components.SoundManager,
     onMediaClick: (String, Int, String) -> Unit
 ) {
     var selectedIndex by remember { mutableIntStateOf(results.size - 1) } // Default to latest
@@ -219,6 +234,7 @@ fun GroupedSearchItem(
         showTags = showTags,
         isInList = current.mediaListEntry != null,
         onAddClick = { onAddClick(current.title?.userPreferred ?: "") },
+        soundManager = soundManager,
         extraContent = {
             if (results.size > 1) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -272,10 +288,16 @@ fun SearchItem(
     isInList: Boolean,
     onAddClick: () -> Unit,
     extraContent: @Composable () -> Unit = {},
+    soundManager: com.example.anilistapp.ui.components.SoundManager,
     onClick: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     OutlinedCard(
-        onClick = onClick,
+        onClick = {
+            soundManager.playClick()
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth(),
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
@@ -354,7 +376,11 @@ fun SearchItem(
             
             if (!isInList) {
                 IconButton(
-                    onClick = onAddClick,
+                    onClick = {
+                        soundManager.playSuccess()
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onAddClick()
+                    },
                     modifier = Modifier.align(Alignment.CenterVertically).padding(end = 8.dp)
                 ) {
                     Icon(Icons.Default.BookmarkAdd, contentDescription = "Add to Watchlist", tint = MaterialTheme.colorScheme.primary)

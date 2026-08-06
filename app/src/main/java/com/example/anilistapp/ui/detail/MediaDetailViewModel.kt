@@ -13,6 +13,7 @@ import com.example.anilistapp.data.SettingsRepository
 import com.example.anilistapp.data.ComplementRepository
 import com.example.anilistapp.data.JellyfinRepository
 import com.example.anilistapp.data.PlexRepository
+import com.example.anilistapp.data.TmdbRepository
 import com.example.anilistapp.data.StreamProvider
 import com.example.anilistapp.data.MetadataProvider
 import com.example.anilistapp.type.MediaListStatus
@@ -57,6 +58,8 @@ data class MediaDetailState(
     val showMultipleTitles: Boolean = false,
     val appLanguages: Set<String> = setOf("ENGLISH"),
     val randomizeUiLanguage: Boolean = false,
+    val primaryAppLanguage: String = "ENGLISH",
+    val preferredTrailerLanguage: String = "JAPANESE",
     val streamLinks: List<Pair<String, String>> = emptyList(), // Name to URL
     val extraMetadata: Map<String, String> = emptyMap(),
     val youtubeVideoId: String? = null,
@@ -73,6 +76,7 @@ class MediaDetailViewModel @Inject constructor(
     private val complementRepository: ComplementRepository,
     private val jellyfinRepository: JellyfinRepository,
     private val plexRepository: PlexRepository,
+    private val tmdbRepository: TmdbRepository,
     val localizationManager: LocalizationManager
 ) : ViewModel() {
 
@@ -127,24 +131,42 @@ class MediaDetailViewModel @Inject constructor(
                 )
             } ?: emptyList()
 
-            val kitsu = kitsuRepository.getDetailsByTitle(finalTitle, mediaType != com.example.anilistapp.type.MediaType.MANGA)
+            val language = settingsRepository.titleLanguage.first()
+            val appLangs = settingsRepository.appLanguages.first()
+            val primaryLang = settingsRepository.primaryAppLanguage.first()
+            val preferredAppLang = primaryLang
+            val multiple = settingsRepository.showMultipleTitles.first()
+            val randomize = settingsRepository.randomizeUiLanguage.first()
+            val showMore = settingsRepository.showMoreContent.first()
+            val trailerLang = settingsRepository.preferredTrailerLanguage.first()
+            val enableLocalized = settingsRepository.enableLocalizedContent.first()
+            
+            // Priority for trailers: If English preferred, search with English title on Kitsu/MAL
+            val kitsuSearchTitle = if (trailerLang == "ENGLISH" && !englishTitle.isNullOrEmpty()) englishTitle else finalTitle
+            val kitsu = kitsuRepository.getDetailsByTitle(kitsuSearchTitle, mediaType != com.example.anilistapp.type.MediaType.MANGA)
 
             val seerrData = fetchSeerrDetails(finalTitle, romajiTitle, englishTitle, kitsu?.title, aniListTmdbId, aniListTvdbId, mediaFormat)
 
-            val language = settingsRepository.titleLanguage.first()
-            val multiple = settingsRepository.showMultipleTitles.first()
-            val appLangs = settingsRepository.appLanguages.first()
-            val randomize = settingsRepository.randomizeUiLanguage.first()
-            val showMore = settingsRepository.showMoreContent.first()
-            
+            // Localized Synopsis & Poster from TMDB
+            var localizedSynopsis = finalSynopsis
+            var localizedPoster = finalPosterUrl
+            val tmdbIdForLocalization = aniListTmdbId ?: seerrData.match?.id
+            if (tmdbIdForLocalization != null && preferredAppLang != "ENGLISH" && enableLocalized) {
+                val localized = tmdbRepository.getLocalizedDetails(tmdbIdForLocalization, if (mediaFormat == "MOVIE") "movie" else "tv", preferredAppLang)
+                if (localized != null) {
+                    if (localized.overview.isNotEmpty()) localizedSynopsis = localized.overview
+                    if (localized.posterPath != null) localizedPoster = localized.posterPath
+                }
+            }
+
             val finalYoutubeId = finalTrailerId ?: kitsu?.youtubeVideoId
 
             _state.update { it.copy(
                 mediaId = aniMedia?.id ?: mediaId,
                 isInWatchlist = alreadyInList,
                 title = finalTitle,
-                synopsis = finalSynopsis,
-                posterUrl = finalPosterUrl,
+                synopsis = localizedSynopsis,
+                posterUrl = localizedPoster,
                 kitsuDetails = kitsu,
                 seerrMatch = seerrData.match,
                 seerrSeasons = seerrData.seasons,
@@ -159,11 +181,36 @@ class MediaDetailViewModel @Inject constructor(
                 showMultipleTitles = multiple,
                 appLanguages = appLangs,
                 randomizeUiLanguage = randomize,
+                primaryAppLanguage = primaryLang,
+                preferredTrailerLanguage = trailerLang,
                 isLoading = false,
                 youtubeVideoId = if (finalYoutubeId.isNullOrEmpty()) null else finalYoutubeId,
                 relatedMedia = related,
                 showMoreContentSection = showMore
             ) }
+
+            // Automatic trailer localization enrichment
+            if (trailerLang != "JAPANESE") {
+                viewModelScope.launch {
+                    val localizedId = kitsuRepository.searchYouTubeTrailer(
+                        title = finalTitle, 
+                        language = trailerLang,
+                        type = mediaType?.name ?: "ANIME",
+                        format = mediaFormat
+                    )
+                    if (localizedId != null) {
+                        _state.update { it.copy(youtubeVideoId = localizedId) }
+                    } else if (finalYoutubeId == finalTrailerId) {
+                        // Fallback to Kitsu title-based if YouTube search failed
+                        val kitsuLocalized = kitsuRepository.getDetailsByTitle(
+                            if (trailerLang == "ENGLISH" && !englishTitle.isNullOrEmpty()) englishTitle else finalTitle
+                        )
+                        if (kitsuLocalized?.youtubeVideoId != null && kitsuLocalized.youtubeVideoId.isNotEmpty()) {
+                            _state.update { it.copy(youtubeVideoId = kitsuLocalized.youtubeVideoId) }
+                        }
+                    }
+                }
+            }
 
             loadComplements(finalTitle, romajiTitle ?: finalTitle, mediaType)
         }

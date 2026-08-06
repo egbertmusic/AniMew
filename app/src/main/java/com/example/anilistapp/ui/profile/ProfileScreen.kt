@@ -39,17 +39,20 @@ fun ProfileScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    LocalizableText(
-                        text = "Profile",
-                        languages = state.appLanguages,
-                        randomize = state.randomizeUiLanguage,
-                        localizationManager = viewModel.localizationManager
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
+            if (state.showAppTitle) {
+                TopAppBar(
+                    title = {
+                        LocalizableText(
+                            text = "Profile",
+                            languages = state.appLanguages,
+                            randomize = state.randomizeUiLanguage,
+                            primaryLanguage = state.primaryAppLanguage,
+                            localizationManager = viewModel.localizationManager
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                )
+            }
         },
         containerColor = Color.Transparent
     ) { padding ->
@@ -98,10 +101,10 @@ fun ProfileScreen(
                         
                         // Summary Comparison
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            SummaryItem("Anime", "${state.animeStats?.count ?: 0}", MaterialTheme.colorScheme.primary)
-                            SummaryItem("Manga", "${state.mangaStats?.count ?: 0}", MaterialTheme.colorScheme.secondary)
+                            SummaryItem("Anime", "${state.animeStats?.count ?: 0}", MaterialTheme.colorScheme.primary, state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, viewModel.localizationManager)
+                            SummaryItem("Manga", "${state.mangaStats?.count ?: 0}", MaterialTheme.colorScheme.secondary, state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, viewModel.localizationManager)
                             val totalEntries = (state.animeStats?.count ?: 0) + (state.mangaStats?.count ?: 0)
-                            SummaryItem("Total", "$totalEntries", MaterialTheme.colorScheme.tertiary)
+                            SummaryItem("Total", "$totalEntries", MaterialTheme.colorScheme.tertiary, state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, viewModel.localizationManager)
                         }
                     }
                 }
@@ -115,10 +118,26 @@ fun ProfileScreen(
                     divider = {}
                 ) {
                     Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 }) {
-                        Text("Anime", modifier = Modifier.padding(vertical = 12.dp), fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal)
+                        LocalizableText(
+                            text = "Anime",
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal,
+                            languages = state.appLanguages,
+                            randomize = state.randomizeUiLanguage,
+                            primaryLanguage = state.primaryAppLanguage,
+                            localizationManager = viewModel.localizationManager
+                        )
                     }
                     Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 }) {
-                        Text("Manga", modifier = Modifier.padding(vertical = 12.dp), fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal)
+                        LocalizableText(
+                            text = "Manga",
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal,
+                            languages = state.appLanguages,
+                            randomize = state.randomizeUiLanguage,
+                            primaryLanguage = state.primaryAppLanguage,
+                            localizationManager = viewModel.localizationManager
+                        )
                     }
                 }
 
@@ -126,11 +145,11 @@ fun ProfileScreen(
 
                 if (selectedTab == 0) {
                     state.animeStats?.let { stats ->
-                        AnimeStatsSection(stats)
+                        AnimeStatsSection(stats, state, viewModel.localizationManager)
                     }
                 } else {
                     state.mangaStats?.let { stats ->
-                        MangaStatsSection(stats)
+                        MangaStatsSection(stats, state, viewModel.localizationManager)
                     }
                 }
 
@@ -147,15 +166,23 @@ fun ProfileScreen(
 }
 
 @Composable
-fun SummaryItem(label: String, value: String, color: Color) {
+fun SummaryItem(label: String, value: String, color: Color, languages: Set<String>, primaryLanguage: String, randomize: Boolean, localizationManager: com.example.anilistapp.ui.components.LocalizationManager) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = color)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        LocalizableText(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            languages = languages,
+            randomize = randomize,
+            primaryLanguage = primaryLanguage,
+            localizationManager = localizationManager
+        )
     }
 }
 
 @Composable
-fun AnimeStatsSection(stats: GetUserStatsQuery.Anime) {
+fun AnimeStatsSection(stats: GetUserStatsQuery.Anime, state: ProfileState, localizationManager: com.example.anilistapp.ui.components.LocalizationManager) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -163,62 +190,66 @@ fun AnimeStatsSection(stats: GetUserStatsQuery.Anime) {
         ) {
             val days = stats.minutesWatched / 1440.0
             val displayTime = if (days >= 1.0) "%.1f Days".format(days) else "${stats.minutesWatched} Mins"
-            StatItem("Time Watched", displayTime)
-            StatItem("Episodes", stats.episodesWatched.toString())
+            StatItem("Time Watched", displayTime, state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
+            StatItem("Episodes", stats.episodesWatched.toString(), state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
         }
         Spacer(modifier = Modifier.height(16.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            StatItem("Avg Score", "%.1f".format(stats.meanScore))
-            StatItem("Count", stats.count.toString())
+            StatItem("Avg Score", "%.1f".format(stats.meanScore), state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
+            StatItem("Count", stats.count.toString(), state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
         }
 
-        ChartSectionTitle("Anime Status Distribution")
-        StatusPieChart(stats.statuses?.filterNotNull()?.map { StatusData(it.status, it.count) } ?: emptyList())
+        ChartSectionTitle("Anime Status Distribution", state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
+        StatusPieChart(stats.statuses?.filterNotNull()?.map { StatusData(it.status, it.count) } ?: emptyList(), state, localizationManager)
         
-        ChartSectionTitle("Top Anime Genres")
-        GenreBarChart(stats.genres?.filterNotNull()?.map { GenreData(it.genre, it.count) } ?: emptyList())
+        ChartSectionTitle("Top Anime Genres", state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
+        GenreBarChart(stats.genres?.filterNotNull()?.map { GenreData(it.genre, it.count) } ?: emptyList(), state, localizationManager)
     }
 }
 
 @Composable
-fun MangaStatsSection(stats: GetUserStatsQuery.Manga) {
+fun MangaStatsSection(stats: GetUserStatsQuery.Manga, state: ProfileState, localizationManager: com.example.anilistapp.ui.components.LocalizationManager) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            StatItem("Chapters", stats.chaptersRead.toString())
-            StatItem("Volumes", stats.volumesRead.toString())
+            StatItem("Chapters", stats.chaptersRead.toString(), state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
+            StatItem("Volumes", stats.volumesRead.toString(), state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
         }
         Spacer(modifier = Modifier.height(16.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            StatItem("Avg Score", "%.1f".format(stats.meanScore))
-            StatItem("Count", stats.count.toString())
+            StatItem("Avg Score", "%.1f".format(stats.meanScore), state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
+            StatItem("Count", stats.count.toString(), state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
         }
 
-        ChartSectionTitle("Manga Status Distribution")
-        StatusPieChart(stats.statuses?.filterNotNull()?.map { StatusData(it.status, it.count) } ?: emptyList())
+        ChartSectionTitle("Manga Status Distribution", state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
+        StatusPieChart(stats.statuses?.filterNotNull()?.map { StatusData(it.status, it.count) } ?: emptyList(), state, localizationManager)
         
-        ChartSectionTitle("Top Manga Genres")
-        GenreBarChart(stats.genres?.filterNotNull()?.map { GenreData(it.genre, it.count) } ?: emptyList())
+        ChartSectionTitle("Top Manga Genres", state.appLanguages, state.primaryAppLanguage, state.randomizeUiLanguage, localizationManager)
+        GenreBarChart(stats.genres?.filterNotNull()?.map { GenreData(it.genre, it.count) } ?: emptyList(), state, localizationManager)
     }
 }
 
 @Composable
-fun ChartSectionTitle(title: String) {
+fun ChartSectionTitle(title: String, languages: Set<String>, primaryLanguage: String, randomize: Boolean, localizationManager: com.example.anilistapp.ui.components.LocalizationManager) {
     Spacer(modifier = Modifier.height(32.dp))
-    Text(
+    LocalizableText(
         text = title,
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.ExtraBold,
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+        languages = languages,
+        randomize = randomize,
+        primaryLanguage = primaryLanguage,
+        localizationManager = localizationManager
     )
     Spacer(modifier = Modifier.height(16.dp))
 }
@@ -227,7 +258,7 @@ data class StatusData(val status: MediaListStatus?, val count: Int)
 data class GenreData(val genre: String?, val count: Int)
 
 @Composable
-fun StatusPieChart(data: List<StatusData>) {
+fun StatusPieChart(data: List<StatusData>, state: ProfileState, localizationManager: com.example.anilistapp.ui.components.LocalizationManager) {
     val total = data.sumOf { it.count }
     if (total == 0) return
 
@@ -275,8 +306,18 @@ fun StatusPieChart(data: List<StatusData>) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
                         Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(colors[item.status] ?: Color.LightGray))
                         Spacer(modifier = Modifier.width(8.dp))
+                        LocalizableText(
+                            text = item.status?.name ?: "Unknown",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            languages = state.appLanguages,
+                            randomize = state.randomizeUiLanguage,
+                            primaryLanguage = state.primaryAppLanguage,
+                            localizationManager = localizationManager,
+                            modifier = Modifier.weight(1f)
+                        )
                         Text(
-                            text = "${item.status?.name?.lowercase()?.replaceFirstChar { it.uppercase() }}: $percentage%",
+                            text = ": $percentage%",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -288,7 +329,7 @@ fun StatusPieChart(data: List<StatusData>) {
 }
 
 @Composable
-fun GenreBarChart(data: List<GenreData>) {
+fun GenreBarChart(data: List<GenreData>, state: ProfileState, localizationManager: com.example.anilistapp.ui.components.LocalizationManager) {
     if (data.isEmpty()) return
     val maxCount = data.maxOf { it.count }
 
@@ -301,7 +342,16 @@ fun GenreBarChart(data: List<GenreData>) {
             data.take(6).forEach { genre ->
                 Column(modifier = Modifier.padding(vertical = 6.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(genre.genre ?: "Unknown", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                        LocalizableText(
+                            text = genre.genre ?: "Unknown",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            languages = state.appLanguages,
+                            randomize = state.randomizeUiLanguage,
+                            primaryLanguage = state.primaryAppLanguage,
+                            localizationManager = localizationManager
+                        )
                         Text("${genre.count}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
@@ -327,7 +377,7 @@ fun GenreBarChart(data: List<GenreData>) {
 }
 
 @Composable
-fun StatItem(label: String, value: String) {
+fun StatItem(label: String, value: String, languages: Set<String>, primaryLanguage: String, randomize: Boolean, localizationManager: com.example.anilistapp.ui.components.LocalizationManager) {
     Card(
         modifier = Modifier
             .width(160.dp)
@@ -347,10 +397,14 @@ fun StatItem(label: String, value: String) {
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.primary
             )
-            Text(
+            LocalizableText(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                languages = languages,
+                randomize = randomize,
+                primaryLanguage = primaryLanguage,
+                localizationManager = localizationManager
             )
         }
     }

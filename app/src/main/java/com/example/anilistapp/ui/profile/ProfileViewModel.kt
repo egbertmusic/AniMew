@@ -24,7 +24,9 @@ data class ProfileState(
     val mangaStats: GetUserStatsQuery.Manga? = null,
     val error: String? = null,
     val appLanguages: Set<String> = setOf("ENGLISH"),
+    val primaryAppLanguage: String = "ENGLISH",
     val randomizeUiLanguage: Boolean = false,
+    val showAppTitle: Boolean = true
 )
 
 @HiltViewModel
@@ -46,8 +48,10 @@ class ProfileViewModel @Inject constructor(
             _state.update { it.copy(isLoading = true, error = null) }
             try {
                 val appLangs = settingsRepository.appLanguages.first()
-                val randomize = settingsRepository.randomizeUiLanguage.first()
-                _state.update { it.copy(appLanguages = appLangs, randomizeUiLanguage = randomize) }
+            val primaryLang = settingsRepository.primaryAppLanguage.first()
+            val randomize = settingsRepository.randomizeUiLanguage.first()
+            val appTitle = settingsRepository.showAppTitle.first()
+            _state.update { it.copy(appLanguages = appLangs, primaryAppLanguage = primaryLang, randomizeUiLanguage = randomize, showAppTitle = appTitle) }
 
                 val viewerResponse = repository.getViewer()
                 val viewer = viewerResponse.data?.Viewer

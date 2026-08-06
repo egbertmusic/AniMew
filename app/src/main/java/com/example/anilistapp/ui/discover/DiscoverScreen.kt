@@ -1,6 +1,8 @@
 package com.example.anilistapp.ui.discover
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -36,17 +38,20 @@ fun DiscoverScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    LocalizableText(
-                        text = "Discover",
-                        languages = state.appLanguages,
-                        randomize = state.randomizeUiLanguage,
-                        localizationManager = viewModel.localizationManager
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
+            if (state.showAppTitle) {
+                TopAppBar(
+                    title = {
+                        LocalizableText(
+                            text = "Discover",
+                            languages = state.appLanguages,
+                            randomize = state.randomizeUiLanguage,
+                            primaryLanguage = state.primaryAppLanguage,
+                            localizationManager = viewModel.localizationManager
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                )
+            }
         },
         containerColor = Color.Transparent
     ) { padding ->
@@ -63,16 +68,17 @@ fun DiscoverScreen(
                     .padding(bottom = contentPadding.calculateBottomPadding())
             ) {
                 DiscoverSection("Trending Now", state.trending.map { 
-                    DiscoverMedia(it.id, it.title?.userPreferred ?: "Unknown", it.coverImage?.large ?: "", "ANIME") 
-                }, onMediaClick)
+                    DiscoverMedia(it.id, state.localizedTitles[it.id] ?: it.title?.userPreferred ?: "Unknown", it.coverImage?.large ?: "", "ANIME") 
+                }, onMediaClick, viewModel.soundManager, state, viewModel.localizationManager)
                 
                 DiscoverSection("Current Season", state.seasonal.map { 
-                    DiscoverMedia(it.id, it.title?.userPreferred ?: "Unknown", it.coverImage?.large ?: "", "ANIME") 
-                }, onMediaClick)
+                    DiscoverMedia(it.id, state.localizedTitles[it.id] ?: it.title?.userPreferred ?: "Unknown", it.coverImage?.large ?: "", "ANIME") 
+                }, onMediaClick, viewModel.soundManager, state, viewModel.localizationManager)
 
                 DiscoverSection("Airing Today", state.airingToday.map { 
-                    DiscoverMedia(it.media?.id ?: 0, it.media?.title?.userPreferred ?: "Unknown", it.media?.coverImage?.large ?: "", "ANIME") 
-                }, onMediaClick)
+                    val mid = it.media?.id ?: 0
+                    DiscoverMedia(mid, state.localizedTitles[mid] ?: it.media?.title?.userPreferred ?: "Unknown", it.media?.coverImage?.large ?: "", "ANIME") 
+                }, onMediaClick, viewModel.soundManager, state, viewModel.localizationManager)
                 
                 Spacer(modifier = Modifier.height(32.dp))
             }
@@ -84,24 +90,31 @@ fun DiscoverScreen(
 fun DiscoverSection(
     title: String,
     items: List<DiscoverMedia>,
-    onMediaClick: (String, Int, String) -> Unit
+    onMediaClick: (String, Int, String) -> Unit,
+    soundManager: com.example.anilistapp.ui.components.SoundManager,
+    state: DiscoverState,
+    localizationManager: com.example.anilistapp.ui.components.LocalizationManager
 ) {
     if (items.isEmpty()) return
 
     Column(modifier = Modifier.padding(vertical = 16.dp)) {
-        Text(
+        LocalizableText(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            languages = state.appLanguages,
+            randomize = state.randomizeUiLanguage,
+            primaryLanguage = state.primaryAppLanguage,
+            localizationManager = localizationManager
         )
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(items) { item ->
-                DiscoverItem(item, onMediaClick)
+                DiscoverItem(item, onMediaClick, soundManager)
             }
         }
     }
@@ -110,12 +123,18 @@ fun DiscoverSection(
 @Composable
 fun DiscoverItem(
     media: DiscoverMedia,
-    onMediaClick: (String, Int, String) -> Unit
+    onMediaClick: (String, Int, String) -> Unit,
+    soundManager: com.example.anilistapp.ui.components.SoundManager
 ) {
+    val haptic = LocalHapticFeedback.current
     Column(
         modifier = Modifier
             .width(140.dp)
-            .clickable { onMediaClick(media.title, media.id, media.type) }
+            .clickable { 
+                soundManager.playClick()
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onMediaClick(media.title, media.id, media.type) 
+            }
     ) {
         AsyncImage(
             model = media.coverUrl,

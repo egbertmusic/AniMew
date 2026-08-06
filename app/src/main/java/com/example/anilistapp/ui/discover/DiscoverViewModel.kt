@@ -6,10 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.example.anilistapp.GetAiringScheduleQuery
 import com.example.anilistapp.GetSeasonalMediaQuery
 import com.example.anilistapp.GetTrendingMediaQuery
+import com.example.anilistapp.data.LocalizedMediaDetails
 import com.example.anilistapp.data.MediaRepository
+import com.example.anilistapp.data.SeerrRepository
 import com.example.anilistapp.data.SettingsRepository
+import com.example.anilistapp.data.TmdbRepository
 import com.example.anilistapp.type.MediaSeason
 import com.example.anilistapp.ui.components.LocalizationManager
+import com.example.anilistapp.ui.components.SoundManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,14 +31,20 @@ data class DiscoverState(
     val airingToday: List<GetAiringScheduleQuery.AiringSchedule> = emptyList(),
     val error: String? = null,
     val appLanguages: Set<String> = setOf("ENGLISH"),
-    val randomizeUiLanguage: Boolean = false
+    val primaryAppLanguage: String = "ENGLISH",
+    val randomizeUiLanguage: Boolean = false,
+    val showAppTitle: Boolean = true,
+    val localizedTitles: Map<Int, String> = emptyMap()
 )
 
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
     private val repository: MediaRepository,
+    private val seerrRepository: SeerrRepository,
+    private val tmdbRepository: TmdbRepository,
     private val settingsRepository: SettingsRepository,
-    val localizationManager: LocalizationManager
+    val localizationManager: LocalizationManager,
+    val soundManager: SoundManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(DiscoverState())
@@ -49,8 +59,10 @@ class DiscoverViewModel @Inject constructor(
             _state.update { it.copy(isLoading = true, error = null) }
             try {
                 val appLangs = settingsRepository.appLanguages.first()
+                val primaryLang = settingsRepository.primaryAppLanguage.first()
                 val randomize = settingsRepository.randomizeUiLanguage.first()
-                _state.update { it.copy(appLanguages = appLangs, randomizeUiLanguage = randomize) }
+                val appTitle = settingsRepository.showAppTitle.first()
+                _state.update { it.copy(appLanguages = appLangs, primaryAppLanguage = primaryLang, randomizeUiLanguage = randomize, showAppTitle = appTitle) }
 
                 // Trending
                 val trendingResponse = repository.getTrendingMedia()
@@ -81,9 +93,37 @@ class DiscoverViewModel @Inject constructor(
                     seasonal = seasonalList,
                     airingToday = airingList
                 ) }
+
+                fetchLocalizedTitles(trendingList.map { it.id to (it.title?.userPreferred ?: "") } + 
+                                   seasonalList.map { it.id to (it.title?.userPreferred ?: "") } +
+                                   airingList.map { (it.media?.id ?: 0) to (it.media?.title?.userPreferred ?: "") })
+
             } catch (e: Exception) {
                 Log.e("DiscoverVM", "Failed to fetch discover data", e)
                 _state.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    private fun fetchLocalizedTitles(items: List<Pair<Int, String>>) {
+        viewModelScope.launch {
+            val primaryLang = settingsRepository.primaryAppLanguage.first()
+            if (primaryLang == "ENGLISH") return@launch
+
+            items.distinctBy { it.first }.forEach { (id, title) ->
+                if (id == 0) return@forEach
+                launch {
+                    try {
+                        val searchResults = seerrRepository.searchShow(title)
+                        val match = searchResults.find { it.title.equals(title, ignoreCase = true) } ?: searchResults.firstOrNull()
+                        if (match != null) {
+                            val localized = tmdbRepository.getLocalizedDetails(match.id, match.type, primaryLang)
+                            if (localized?.title != null) {
+                                _state.update { it.copy(localizedTitles = it.localizedTitles + (id to localized.title)) }
+                            }
+                        }
+                    } catch (e: Exception) {}
+                }
             }
         }
     }

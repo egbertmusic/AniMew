@@ -16,15 +16,19 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material3.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -43,6 +47,8 @@ import com.example.anilistapp.ui.settings.ComplementManagementScreen
 import com.example.anilistapp.ui.theme.AnilistAppTheme
 import com.example.anilistapp.ui.theme.AppTheme
 import com.example.anilistapp.ui.theme.AniListTheme
+import com.example.anilistapp.ui.components.LocalizationManager
+import com.example.anilistapp.ui.components.SoundManager
 import com.example.anilistapp.ui.theme.CustomTheme
 import com.example.anilistapp.data.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -57,6 +63,12 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
+    @Inject
+    lateinit var soundManager: SoundManager
+
+    @Inject
+    lateinit var localizationManager: LocalizationManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -65,9 +77,26 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val themeMode by settingsRepository.themeMode.collectAsState("DARK")
+            val enableBgm by settingsRepository.enableBgm.collectAsState(false)
+            
+            LaunchedEffect(enableBgm) {
+                if (enableBgm) {
+                    // soundManager.startBgm(R.raw.ambient_piano) // User needs to add this
+                    soundManager.startBgm()
+                } else {
+                    soundManager.stopBgm()
+                }
+            }
+            
             val customThemeJson by settingsRepository.customThemeJson.collectAsState(null)
             val enableDiscoverFeed by settingsRepository.enableDiscoverFeed.collectAsState(true)
+            val enableShortsFeed by settingsRepository.enableShortsFeed.collectAsState(true)
             val enableProfileTab by settingsRepository.enableProfileTab.collectAsState(true)
+            val enableMewingChad by settingsRepository.enableMewingChad.collectAsState(false)
+            val primaryAppLanguage by settingsRepository.primaryAppLanguage.collectAsState("ENGLISH")
+            val randomizeUiLanguage by settingsRepository.randomizeUiLanguage.collectAsState(false)
+            val appLanguages by settingsRepository.appLanguages.collectAsState(setOf("ENGLISH"))
+            val shortsNavigationStyle by settingsRepository.shortsNavigationStyle.collectAsState("BOTTOM")
             
             val appTheme = try { AppTheme.valueOf(themeMode) } catch (e: Exception) { AppTheme.DARK }
             val customTheme = remember(customThemeJson) {
@@ -79,6 +108,7 @@ class MainActivity : ComponentActivity() {
             AnilistAppTheme(theme = appTheme, customTheme = customTheme) {
                     val navController = rememberNavController()
                     val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
+                    val haptic = LocalHapticFeedback.current
 
                     if (isLoggedIn == null) {
                         // Loading state
@@ -92,10 +122,16 @@ class MainActivity : ComponentActivity() {
                                 bottomBar = {
                                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                                     val currentDestination = navBackStackEntry?.destination
+                                    val currentRoute = currentDestination?.route
                                     
                                     // Only show bottom bar on top-level screens AND if enabled in settings
-                                    val showBottomBar = (enableDiscoverFeed || enableProfileTab) && 
-                                        currentDestination?.route in listOf("library", "discover", "profile")
+                                    var showBottomBar = (enableDiscoverFeed || enableShortsFeed || enableProfileTab) && 
+                                        currentRoute in listOf("library", "discover", "shorts", "profile")
+                                    
+                                    // Special logic for shorts: hide bottom bar if style is not BOTTOM
+                                    if (currentRoute == "shorts" && shortsNavigationStyle != "BOTTOM") {
+                                        showBottomBar = false
+                                    }
                                     
                                     if (showBottomBar) {
                                         val glass = AniListTheme.glass
@@ -125,10 +161,13 @@ class MainActivity : ComponentActivity() {
                                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                val items = mutableListOf<Triple<String, String, androidx.compose.ui.graphics.vector.ImageVector>>()
+                                                val items = mutableListOf<Triple<String, String, Any>>()
                                                 items.add(Triple("Library", "library", Icons.Default.CollectionsBookmark))
                                                 if (enableDiscoverFeed) items.add(Triple("Discover", "discover", Icons.Default.Explore))
-                                                if (enableProfileTab) items.add(Triple("Profile", "profile", Icons.Default.AccountCircle))
+                                                if (enableShortsFeed) items.add(Triple("Shorts", "shorts", Icons.Default.Movie))
+                                                if (enableProfileTab) {
+                                                    items.add(Triple("Profile", "profile", Icons.Default.AccountCircle))
+                                                }
                                                 
                                                 items.forEach { (label, route, icon) ->
                                                     val selected = currentDestination?.route == route
@@ -140,6 +179,7 @@ class MainActivity : ComponentActivity() {
                                                                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
                                                                 indication = null,
                                                                 onClick = {
+                                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                                     navController.navigate(route) {
                                                                         popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                                                                         launchSingleTop = true
@@ -161,18 +201,32 @@ class MainActivity : ComponentActivity() {
                                                                 ),
                                                             contentAlignment = Alignment.Center
                                                         ) {
-                                                            Icon(
-                                                                imageVector = icon,
-                                                                contentDescription = null,
-                                                                tint = if (selected) {
-                                                                    if (glass.useBlur) Color.White else MaterialTheme.colorScheme.primary
-                                                                } else {
-                                                                    if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant
-                                                                }
-                                                            )
+                                                            if (icon is androidx.compose.ui.graphics.vector.ImageVector) {
+                                                                Icon(
+                                                                    imageVector = icon,
+                                                                    contentDescription = null,
+                                                                    tint = if (selected) {
+                                                                        if (glass.useBlur) Color.White else MaterialTheme.colorScheme.primary
+                                                                    } else {
+                                                                        if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant
+                                                                    }
+                                                                )
+                                                            } else if (icon is Int) {
+                                                                androidx.compose.foundation.Image(
+                                                                    painter = androidx.compose.ui.res.painterResource(id = icon),
+                                                                    contentDescription = null,
+                                                                    modifier = Modifier.size(24.dp),
+                                                                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                                                                    colorFilter = if (selected) {
+                                                                        null // Keep original colors for chad? Or tint? 
+                                                                    } else {
+                                                                        androidx.compose.ui.graphics.ColorFilter.tint(if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant)
+                                                                    }
+                                                                )
+                                                            }
                                                         }
                                                         Spacer(modifier = Modifier.height(4.dp))
-                                                        Text(
+                                                        com.example.anilistapp.ui.components.LocalizableText(
                                                             text = label,
                                                             style = MaterialTheme.typography.labelSmall,
                                                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
@@ -180,7 +234,11 @@ class MainActivity : ComponentActivity() {
                                                                 if (glass.useBlur) Color.White else MaterialTheme.colorScheme.primary
                                                             } else {
                                                                 if (glass.useBlur) Color.White.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurfaceVariant
-                                                            }
+                                                            },
+                                                            languages = appLanguages,
+                                                            randomize = randomizeUiLanguage,
+                                                            primaryLanguage = primaryAppLanguage,
+                                                            localizationManager = localizationManager
                                                         )
                                                     }
                                                 }
@@ -211,6 +269,21 @@ class MainActivity : ComponentActivity() {
                                                 navController.navigate(route)
                                             },
                                             contentPadding = innerPadding
+                                        )
+                                    }
+                                    composable("shorts") {
+                                        com.example.anilistapp.ui.shorts.ShortsScreen(
+                                            onMediaClick = { title, id, type ->
+                                                val route = if (id != -1) "detail/$title?id=$id&type=$type" else "detail/$title?type=$type"
+                                                navController.navigate(route)
+                                            },
+                                            onNavigate = { route ->
+                                                navController.navigate(route) {
+                                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                    launchSingleTop = true
+                                                    restoreState = true
+                                                }
+                                            }
                                         )
                                     }
                                     composable("profile") {
